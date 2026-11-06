@@ -114,6 +114,8 @@ a{color:var(--accent);text-underline-offset:2px}
 .state{text-align:center;padding:28px 16px;color:var(--muted)}
 .state.err{color:var(--danger);background:var(--danger-bg);border-radius:10px;text-align:left}
 .loadmore{align-self:center}
+details.related>summary{cursor:pointer;font-weight:700;color:var(--muted);font-size:.9rem;padding:6px 0}
+details.related .group{margin-top:8px}
 footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
 footer ul{margin:4px 0 0;padding-left:1.1em}
 @media (prefers-reduced-motion:no-preference){.topic{transition:border-color .15s}.topic:hover{border-color:var(--accent)}}
@@ -166,7 +168,7 @@ const CONFIG = {
   SHEET_ID: "1AoL_dQILhYdTYpdGqnys3RJVBPMutr1l1zOfedBYwSM",
   TABS: { topics: "topics", sources: "sources", comments: "comments", meta: "meta", archives: "archives" },
   PAGE_SIZE: 40,          // 新着順で一度に表示する件数
-  NEW_HOURS: 3            // 「新着」バッジを付ける時間
+  NEW_HOURS: 4            // 「新着」バッジを付ける時間（取得サイクルと同じ4時間）
 };
 
 const TEAMS = [
@@ -349,10 +351,14 @@ document.getElementById("month").addEventListener("change", e => { state.sheetId
 function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function safeUrl(u){ return /^https?:\/\//i.test(u || "") ? u : ""; }
 function teamInfo(n){ return TEAMS.find(t => t.name === n) || {name:n||"その他",emoji:"⚾",league:"球界総合・海外"}; }
-function filtered(){
+// 球団の絞り込みは「主役の球団」だけで判定する（related_teams だけ一致する話題は別枠に出す）
+function filtered(relatedOnly){
   const now = Date.now();
   return state.data.topics.filter(t => {
-    if (state.team && t.team !== state.team && !t.related.includes(state.team)) return false;
+    if (state.team){
+      if (relatedOnly){ if (t.team === state.team || !t.related.includes(state.team)) return false; }
+      else if (t.team !== state.team) return false;
+    } else if (relatedOnly) return false;
     if (state.status && t.status !== state.status) return false;
     if (state.cat && t.category !== state.cat) return false;
     if (state.period && (!t.updated || now - t.updated > state.period * 3600e3)) return false;
@@ -390,18 +396,26 @@ function topicHTML(t){
         ${t.related.length ? `<span>関連：${esc(t.related.join("・"))}</span>` : ""}<span class="more">反応と出典</span></div>
     </summary>
     <div class="t-body">
-      <div><h4>反応（転載レス・原文）</h4>${resItems ? `<ul class="res">${resItems}</ul>` : `<p class="quiet">取得できたレスはありません</p>`}</div>
+      <div><h4>反応（転載レス・原文）</h4>${resItems ? `<ul class="res">${resItems}</ul>` : noResHTML(t)}</div>
       <div><h4>出典</h4>${srcItems ? `<ul class="src">${srcItems}</ul>` : `<p class="quiet">${esc(t.sites || "出典の記録なし")}</p>`}</div>
     </div>
   </details>`;
 }
+function noResHTML(t){
+  const first = t.srcs.find(s => safeUrl(s.url));
+  const link = first ? ` <a href="${esc(first.url)}" target="_blank" rel="noopener">元記事を開く</a>` : "";
+  const blocked = t.srcs.length && t.srcs.every(s => String(s.retrieved).toUpperCase() !== "TRUE");
+  return `<p class="quiet">${blocked ? "レス未取得（本文を開けないサイトのため見出しのみ記録）。" : "レス未取得。"}${link}</p>`;
+}
 function render(){
   const d = state.data, main = document.getElementById("main");
-  const list = filtered();
+  const list = filtered(false);
+  const relList = filtered(true);
   const now = Date.now();
-  const recent = d.topics.filter(t => t.updated && now - t.updated < CONFIG.NEW_HOURS * 3600e3);
-  const day = d.topics.filter(t => t.updated && now - t.updated < 24 * 3600e3);
-  const key = d.topics.filter(t => t.updated && now - t.updated < 24 * 3600e3)
+  const scope = d.topics.filter(t => !state.team || t.team === state.team);
+  const recent = scope.filter(t => t.updated && now - t.updated < CONFIG.NEW_HOURS * 3600e3);
+  const day = scope.filter(t => t.updated && now - t.updated < 24 * 3600e3);
+  const key = scope.filter(t => t.updated && now - t.updated < 24 * 3600e3)
     .sort((a,b) => ((+b.n_sites||0)*2 + (+b.n_comments||b.coms.length||0)) - ((+a.n_sites||0)*2 + (+a.n_comments||a.coms.length||0))).slice(0,5);
   let html = `<section><div class="stats"><span><b>${list.length}</b>件を表示</span><span><b>${recent.length}</b>件が直近${CONFIG.NEW_HOURS}時間</span><span><b>${day.length}</b>件が24時間以内</span>${d.meta.coverage ? `<span>収録期間 ${esc(d.meta.coverage)}</span>` : ""}</div></section>`;
   html += `<section><h2>🆕 直近${CONFIG.NEW_HOURS}時間</h2><div class="panel">${recent.length ? `<ul>${recent.map(t => `<li>【${esc(t.team)}】${esc(t.headline)}</li>`).join("")}</ul>` : `<p class="quiet">目立った新着なし</p>`}</div></section>`;
@@ -420,6 +434,9 @@ function render(){
   } else {
     html += `<section class="group">${list.slice(0, state.shown).map(topicHTML).join("")}</section>`;
     if (list.length > state.shown) html += `<button class="btn loadmore" id="more" type="button">さらに表示（残り${list.length - state.shown}件）</button>`;
+  }
+  if (relList.length){
+    html += `<details class="related"><summary>${esc(state.team)}が関連する他球団の話題（${relList.length}件）</summary><div class="group">${relList.map(topicHTML).join("")}</div></details>`;
   }
   html += `<footer><p>データ：<a href="https://docs.google.com/spreadsheets/d/${esc(state.sheetId)}/edit" target="_blank" rel="noopener">NPB掲示板データ</a>（定期実行で追記）</p>
     ${d.unreachable.length ? `<details><summary>巡回できなかったサイト（${d.unreachable.length}件）</summary><ul>${d.unreachable.slice(-15).reverse().map(u => `<li>${esc(u)}</li>`).join("")}</ul></details>` : ""}</footer>`;
