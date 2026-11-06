@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NPBレポート</title>
+<meta name="description" content="プロ野球の最新ニュースとまとめサイトの反応を、Googleスプレッドシート「NPB掲示板データ」から読み込んで球団別に表示します。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@700;900&family=BIZ+UDPGothic:wght@400;700&display=swap">
+<style>
+/* Layout: one reading column; sticky header with filters; topic cards that open to show sources and verbatim replies */
+:root{
+  --bg:#F3F6F2; --surface:#FFFFFF; --ink:#18221D; --muted:#5B6A62; --line:#D7E0DA;
+  --accent:#1E6A47; --accent-ink:#F3F6F2; --accent-soft:#E2EFE7; --quote:#EEF2EF;
+  --s-official:#1E6A47; --s-official-bg:#E2EFE7;
+  --s-report:#2C5A8C;   --s-report-bg:#E3ECF6;
+  --s-rumor:#9A5B00;    --s-rumor-bg:#F8ECD6;
+  --s-joke:#6B6460;     --s-joke-bg:#ECE9E6;
+  --danger:#A8392C;     --danger-bg:#F6E3DF;
+  --display:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111814; --surface:#18221C; --ink:#E4ECE7; --muted:#97A79E; --line:#2B3831;
+  --accent:#6FC59A; --accent-ink:#0E1511; --accent-soft:#1F3328; --quote:#1D2922;
+  --s-official:#6FC59A; --s-official-bg:#1F3328;
+  --s-report:#8DB8EA;   --s-report-bg:#1C2A3A;
+  --s-rumor:#E6B464;    --s-rumor-bg:#3A2C14;
+  --s-joke:#B7AEA8;     --s-joke-bg:#2B2826;
+  --danger:#EE8A7C;     --danger-bg:#3A2220;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111814; --surface:#18221C; --ink:#E4ECE7; --muted:#97A79E; --line:#2B3831;
+  --accent:#6FC59A; --accent-ink:#0E1511; --accent-soft:#1F3328; --quote:#1D2922;
+  --s-official:#6FC59A; --s-official-bg:#1F3328;
+  --s-report:#8DB8EA;   --s-report-bg:#1C2A3A;
+  --s-rumor:#E6B464;    --s-rumor-bg:#3A2C14;
+  --s-joke:#B7AEA8;     --s-joke-bg:#2B2826;
+  --danger:#EE8A7C;     --danger-bg:#3A2220;
+  color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.7}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:20;background:var(--accent)}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--accent);color:var(--accent-ink)}
+header.top .wrap{padding-block:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header.top h1{font-family:var(--display);font-weight:900;font-size:1.2rem;margin:0;letter-spacing:.02em}
+.updated{font-size:.82rem;opacity:.92;font-variant-numeric:tabular-nums}
+.top-actions{margin-left:auto;display:flex;gap:6px;align-items:center}
+.btn{font:inherit;font-size:.82rem;font-weight:700;border-radius:8px;padding:5px 10px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+header.top .btn,header.top select{background:transparent;color:var(--accent-ink);border-color:color-mix(in srgb,var(--accent-ink) 45%,transparent)}
+header.top select option{color:#18221D;background:#fff}
+select{font:inherit;font-size:.82rem;border-radius:8px;padding:5px 8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn:focus-visible,select:focus-visible,input:focus-visible,.chip:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header.top .btn:focus-visible,header.top select:focus-visible{outline-color:var(--accent-ink)}
+
+.filters{background:var(--surface);border-bottom:1px solid var(--line)}
+.filters .wrap{padding-block:10px;display:flex;flex-direction:column;gap:8px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.chip{flex:none;font:inherit;font-size:.82rem;font-weight:700;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:99px;padding:3px 11px;cursor:pointer;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row input[type=search]{flex:1 1 180px;min-width:0;font:inherit;font-size:.9rem;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:.8rem;font-weight:700;border:0;background:var(--bg);color:var(--muted);padding:5px 10px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+
+main.wrap{padding-block:18px 56px;display:flex;flex-direction:column;gap:20px}
+h2{font-family:var(--display);font-weight:900;font-size:1.05rem;margin:0 0 8px;text-wrap:balance}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+.panel ul{margin:0;padding-left:1.1em}
+.panel li{margin:2px 0}
+.quiet{color:var(--muted);margin:0}
+.stats{display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+.stats b{font-size:1.05rem;color:var(--ink);font-variant-numeric:tabular-nums;margin-right:2px}
+
+.league{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:900;color:var(--accent);letter-spacing:.12em;font-size:.85rem;margin-top:4px}
+.league::after{content:"";flex:1;height:2px;background:var(--accent);opacity:.35}
+.group{display:flex;flex-direction:column;gap:10px}
+.group h3{font-family:var(--display);font-weight:900;font-size:1rem;margin:4px 0 0;display:flex;align-items:center;gap:8px}
+.count{font-family:var(--body);font-size:.72rem;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:99px;padding:0 8px}
+
+.topic{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-width:0}
+.topic>summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;flex-direction:column;gap:4px}
+.topic>summary::-webkit-details-marker{display:none}
+.t-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.75rem;color:var(--muted)}
+.team{font-weight:700;color:var(--ink)}
+.pill{font-size:.7rem;font-weight:700;border-radius:4px;padding:0 6px;line-height:1.7}
+.st-公式{color:var(--s-official);background:var(--s-official-bg)}
+.st-報道ベース{color:var(--s-report);background:var(--s-report-bg)}
+.st-噂レベル{color:var(--s-rumor);background:var(--s-rumor-bg)}
+.st-ネタ{color:var(--s-joke);background:var(--s-joke-bg)}
+.cat{border:1px solid var(--line);color:var(--muted)}
+.new{color:var(--danger);background:var(--danger-bg)}
+.t-head{font-size:1rem;font-weight:700;line-height:1.5;margin:0;text-wrap:balance}
+.t-sum{margin:0;font-size:.9rem;color:var(--ink)}
+.t-foot{display:flex;gap:12px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.t-foot .more{margin-left:auto;color:var(--accent);font-weight:700}
+.topic[open] .t-foot .more::after{content:" ▲"}
+.topic:not([open]) .t-foot .more::after{content:" ▼"}
+.t-body{border-top:1px solid var(--line);padding:12px 16px 14px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.t-body h4{font-size:.78rem;letter-spacing:.08em;color:var(--muted);margin:0 0 6px}
+.res{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.res li{background:var(--quote);border-radius:6px;padding:6px 10px;font-size:.9rem;white-space:pre-line;overflow-wrap:anywhere}
+.res .r-meta{display:block;font-size:.72rem;color:var(--muted);margin-top:2px;white-space:normal}
+.res .r-point{display:block;font-size:.8rem;color:var(--muted)}
+.src{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;font-size:.85rem}
+.src li{overflow-wrap:anywhere}
+.src .s-site{font-size:.72rem;color:var(--muted);display:block;font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-underline-offset:2px}
+.state{text-align:center;padding:28px 16px;color:var(--muted)}
+.state.err{color:var(--danger);background:var(--danger-bg);border-radius:10px;text-align:left}
+.loadmore{align-self:center}
+footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+footer ul{margin:4px 0 0;padding-left:1.1em}
+@media (prefers-reduced-motion:no-preference){.topic{transition:border-color .15s}.topic:hover{border-color:var(--accent)}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <h1>⚾ NPBレポート</h1>
+    <span class="updated" id="updated">読み込み中…</span>
+    <div class="top-actions">
+      <select id="month" aria-label="表示する月" hidden></select>
+      <button class="btn" id="reload" type="button">更新</button>
+    </div>
+  </div>
+</header>
+
+<section class="filters" aria-label="絞り込み">
+  <div class="wrap">
+    <div class="chips" id="teamChips" role="group" aria-label="球団"></div>
+    <div class="row">
+      <input type="search" id="q" placeholder="選手名・キーワードで検索" aria-label="キーワード検索">
+      <div class="seg" role="group" aria-label="期間" id="period">
+        <button type="button" data-p="24" aria-pressed="false">24時間</button>
+        <button type="button" data-p="168" aria-pressed="true">7日</button>
+        <button type="button" data-p="0" aria-pressed="false">全期間</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="chips" id="statusChips" role="group" aria-label="情報の確度"></div>
+      <select id="cat" aria-label="カテゴリ"><option value="">すべてのカテゴリ</option></select>
+      <div class="seg" role="group" aria-label="並び順" id="view">
+        <button type="button" data-v="team" aria-pressed="true">球団別</button>
+        <button type="button" data-v="time" aria-pressed="false">新着順</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<main class="wrap" id="main">
+  <p class="state">スプレッドシートからデータを読み込んでいます…</p>
+</main>
+
+<script>
+/* ===== 設定 =====
+   データ元：Googleスプレッドシート「NPB掲示板データ」
+   シートは「リンクを知っている全員が閲覧可」にしておく必要があります。 */
+const CONFIG = {
+  SHEET_ID: "1AoL_dQILhYdTYpdGqnys3RJVBPMutr1l1zOfedBYwSM",
+  TABS: { topics: "topics", sources: "sources", comments: "comments", meta: "meta", archives: "archives" },
+  PAGE_SIZE: 40,          // 新着順で一度に表示する件数
+  NEW_HOURS: 3            // 「新着」バッジを付ける時間
+};
+
+const TEAMS = [
+  {name:"巨人",emoji:"🟠",league:"セ・リーグ"},{name:"阪神",emoji:"🐯",league:"セ・リーグ"},
+  {name:"DeNA",emoji:"⭐",league:"セ・リーグ"},{name:"広島",emoji:"🎏",league:"セ・リーグ"},
+  {name:"ヤクルト",emoji:"🐧",league:"セ・リーグ"},{name:"中日",emoji:"🐉",league:"セ・リーグ"},
+  {name:"ソフトバンク",emoji:"🦅",league:"パ・リーグ"},{name:"日本ハム",emoji:"🦊",league:"パ・リーグ"},
+  {name:"ロッテ",emoji:"⚓",league:"パ・リーグ"},{name:"楽天",emoji:"🦅",league:"パ・リーグ"},
+  {name:"オリックス",emoji:"🐃",league:"パ・リーグ"},{name:"西武",emoji:"🦁",league:"パ・リーグ"},
+  {name:"球界総合",emoji:"🏟️",league:"球界総合・海外"},{name:"海外日本人",emoji:"✈️",league:"球界総合・海外"}
+];
+const TEAM_ALIAS = {"日ハム":"日本ハム","SB":"ソフトバンク","ソフトバンクホークス":"ソフトバンク","オリ":"オリックス","横浜":"DeNA","ＤｅＮＡ":"DeNA","MLB":"海外日本人","海外":"海外日本人","総合":"球界総合"};
+const STATUSES = ["公式","報道ベース","噂レベル","ネタ"];
+
+// ?sheet=スプレッドシートID で別のシートを読み込めます
+const BASE_SHEET_ID = new URLSearchParams(location.search).get("sheet") || CONFIG.SHEET_ID;
+const state = { sheetId: BASE_SHEET_ID, data: null, team: "", status: "", cat: "", q: "", period: 168, view: "team", shown: CONFIG.PAGE_SIZE };
+
+/* ===== 保存（閲覧者ごとの表示設定だけ） ===== */
+const PREF_KEY = "npb-report-prefs";
+try { Object.assign(state, JSON.parse(localStorage.getItem(PREF_KEY) || "{}")); } catch (e) {}
+function savePrefs(){ try { localStorage.setItem(PREF_KEY, JSON.stringify({team:state.team,status:state.status,period:state.period,view:state.view})); } catch (e) {} }
+
+/* ===== データ取得（Google Sheets gviz JSONP） ===== */
+const cache = {};
+let cbn = 0;
+function gvizCell(cell){
+  if (cell == null || cell.v == null) return "";
+  const v = cell.v;
+  // 日付・日時セルは "Date(2026,10,6,18,26,0)"（月は0始まり）で返るので文字列に直す
+  if (typeof v === "string"){
+    const m = v.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+)(?:,(\d+))?)?\)$/);
+    if (m){
+      const p = n => String(n).padStart(2, "0");
+      return m[4] != null ? `${m[1]}-${p(+m[2]+1)}-${p(m[3])} ${p(m[4])}:${p(m[5])}` : `${m[1]}-${p(+m[2]+1)}-${p(m[3])}`;
+    }
+    return v.trim();
+  }
+  return String(v);
+}
+function gviz(book, sheet, tq, fresh){
+  const key = book + "|" + sheet + "|" + tq;
+  if (!fresh && cache[key]) return Promise.resolve(cache[key]);
+  return new Promise((resolve, reject) => {
+    const name = "__gv" + (++cbn);
+    const s = document.createElement("script");
+    const timer = setTimeout(() => { cleanup(); reject(new Error("timeout")); }, 15000);
+    function cleanup(){ clearTimeout(timer); delete window[name]; s.remove(); }
+    window[name] = (res) => {
+      cleanup();
+      if (res.status === "error") return reject(new Error((res.errors || []).map(e => e.detailed_message || e.message).join(" ")));
+      const cols = res.table.cols.map(c => c.label || c.id);
+      const rows = res.table.rows.map(r => {
+        const o = {}; cols.forEach((c, i) => { o[c] = gvizCell(r.c[i]); }); return o;
+      }).filter(o => Object.values(o).some(v => v !== ""));
+      cache[key] = rows; resolve(rows);
+    };
+    s.onerror = () => { cleanup(); reject(new Error("network")); };
+    s.src = `https://docs.google.com/spreadsheets/d/${book}/gviz/tq?headers=1&sheet=${encodeURIComponent(sheet)}`
+          + `&tqx=responseHandler:${name}&tq=${encodeURIComponent(tq || "select *")}`;
+    document.head.appendChild(s);
+  });
+}
+async function fetchTab(id, tab, optional, fresh){
+  try {
+    return await gviz(id, tab, "select *", fresh);
+  } catch (e) {
+    if (optional) return [];
+    throw new Error(`「${tab}」タブを読み込めませんでした（${e.message}）`);
+  }
+}
+let freshNext = false;
+async function load(){
+  const fresh = freshNext; freshNext = false;
+  const main = document.getElementById("main");
+  main.innerHTML = `<p class="state">スプレッドシートからデータを読み込んでいます…</p>`;
+  document.getElementById("updated").textContent = "読み込み中…";
+  try {
+    const id = state.sheetId;
+    const [topics, sources, comments, meta, archives] = await Promise.all([
+      fetchTab(id, CONFIG.TABS.topics, false, fresh),
+      fetchTab(id, CONFIG.TABS.sources, true, fresh),
+      fetchTab(id, CONFIG.TABS.comments, true, fresh),
+      fetchTab(id, CONFIG.TABS.meta, true, fresh),
+      fetchTab(BASE_SHEET_ID, CONFIG.TABS.archives, true, fresh)
+    ]);
+    state.data = prepare(topics, sources, comments, meta, archives);
+    state.shown = CONFIG.PAGE_SIZE;
+    buildControls();
+    render();
+  } catch (e) {
+    main.innerHTML = `<div class="state err"><p><b>データを読み込めませんでした。</b></p><p>${esc(e.message)}</p>
+      <p>スプレッドシートの共有設定が「リンクを知っている全員（閲覧者）」になっているか確認してから、「更新」を押してください。</p></div>`;
+    document.getElementById("updated").textContent = "読み込みエラー";
+  }
+}
+
+/* ===== 整形 ===== */
+function normTeam(t){ t = (t || "").trim(); return TEAM_ALIAS[t] || t; }
+function parseTime(s){
+  if (!s) return null;
+  let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);
+  if (m) return new Date(`${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}T${(m[4]||"0").padStart(2,"0")}:${m[5]||"00"}:00+09:00`);
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/);
+  if (m) return new Date(`${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}T${(m[4]||"0").padStart(2,"0")}:${m[5]||"00"}:00+09:00`);
+  const d = new Date(s); return isNaN(d) ? null : d;
+}
+function fmt(d){
+  if (!d) return "";
+  const p = new Intl.DateTimeFormat("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(d);
+  const g = t => p.find(x => x.type === t)?.value || "";
+  return `${g("month")}/${g("day")} ${g("hour")}:${g("minute")}`;
+}
+function prepare(topics, sources, comments, meta, archives){
+  const srcBy = {}, comBy = {};
+  sources.forEach(s => (srcBy[s.topic_id] ||= []).push(s));
+  comments.forEach(c => (comBy[c.topic_id] ||= []).push(c));
+  const list = topics.filter(t => t.id && t.headline).map(t => {
+    const team = normTeam(t.team);
+    const related = (t.related_teams || "").split(/[\/／,、]/).map(normTeam).filter(Boolean);
+    const updated = parseTime(t.last_updated) || parseTime(t.first_date);
+    const srcs = (srcBy[t.id] || []).slice().sort((a,b) => (parseTime(b.posted_at)||0) - (parseTime(a.posted_at)||0));
+    const coms = comBy[t.id] || [];
+    const text = [t.headline, t.summary, t.sites, team, related.join(" "), coms.map(c => c.excerpt).join(" ")].join(" ").toLowerCase();
+    return { ...t, team, related, updated, srcs, coms, text };
+  }).sort((a,b) => (b.updated||0) - (a.updated||0));
+  const m = {}; const unreachable = [];
+  meta.forEach(r => { if (r.key === "unreachable") unreachable.push(r.value); else if (r.key) m[r.key] = r.value; });
+  return { topics: list, meta: m, unreachable, archives: archives.filter(a => a.spreadsheet_id) };
+}
+
+/* ===== 操作部 ===== */
+function buildControls(){
+  const d = state.data;
+  const teamCounts = {};
+  d.topics.forEach(t => [t.team, ...t.related].forEach(n => teamCounts[n] = (teamCounts[n]||0) + 1));
+  const tc = document.getElementById("teamChips");
+  tc.innerHTML = [`<button class="chip" type="button" data-team="" aria-pressed="${!state.team}">すべて</button>`]
+    .concat(TEAMS.map(t => `<button class="chip" type="button" data-team="${esc(t.name)}" aria-pressed="${state.team===t.name}">${t.emoji} ${esc(t.name)}</button>`)).join("");
+  const sc = document.getElementById("statusChips");
+  sc.innerHTML = [`<button class="chip" type="button" data-status="" aria-pressed="${!state.status}">確度：すべて</button>`]
+    .concat(STATUSES.map(s => `<button class="chip" type="button" data-status="${s}" aria-pressed="${state.status===s}">${s}</button>`)).join("");
+  const cats = [...new Set(d.topics.map(t => t.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ja"));
+  const cs = document.getElementById("cat");
+  cs.innerHTML = `<option value="">すべてのカテゴリ</option>` + cats.map(c => `<option${c===state.cat?" selected":""}>${esc(c)}</option>`).join("");
+  document.querySelectorAll("#period button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.p === state.period)));
+  document.querySelectorAll("#view button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === state.view)));
+  const ms = document.getElementById("month");
+  if (d.archives.length){
+    ms.hidden = false;
+    ms.innerHTML = `<option value="${esc(BASE_SHEET_ID)}">最新</option>` +
+      d.archives.slice().sort((a,b)=>b.month.localeCompare(a.month)).map(a => `<option value="${esc(a.spreadsheet_id)}"${a.spreadsheet_id===state.sheetId?" selected":""}>${esc(a.month)}</option>`).join("");
+  } else ms.hidden = true;
+  const up = parseTime(d.meta.updated_at);
+  document.getElementById("updated").textContent = up ? `${fmt(up)} 更新` : "更新日時不明";
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.team !== undefined){ state.team = b.dataset.team; }
+  else if (b.dataset.status !== undefined){ state.status = b.dataset.status; }
+  else if (b.dataset.p !== undefined){ state.period = +b.dataset.p; }
+  else if (b.dataset.v !== undefined){ state.view = b.dataset.v; }
+  else if (b.id === "reload"){ freshNext = true; load(); return; }
+  else if (b.id === "more"){ state.shown += CONFIG.PAGE_SIZE; render(); return; }
+  else return;
+  state.shown = CONFIG.PAGE_SIZE; savePrefs(); syncPressed(); render();
+});
+function syncPressed(){
+  document.querySelectorAll("#teamChips .chip").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.team === state.team)));
+  document.querySelectorAll("#statusChips .chip").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.status === state.status)));
+  document.querySelectorAll("#period button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.p === state.period)));
+  document.querySelectorAll("#view button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === state.view)));
+}
+let qTimer;
+document.getElementById("q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value.trim().toLowerCase(); state.shown = CONFIG.PAGE_SIZE; render(); }, 200); });
+document.getElementById("cat").addEventListener("change", e => { state.cat = e.target.value; state.shown = CONFIG.PAGE_SIZE; render(); });
+document.getElementById("month").addEventListener("change", e => { state.sheetId = e.target.value; load(); });
+
+/* ===== 描画 ===== */
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function safeUrl(u){ return /^https?:\/\//i.test(u || "") ? u : ""; }
+function teamInfo(n){ return TEAMS.find(t => t.name === n) || {name:n||"その他",emoji:"⚾",league:"球界総合・海外"}; }
+function filtered(){
+  const now = Date.now();
+  return state.data.topics.filter(t => {
+    if (state.team && t.team !== state.team && !t.related.includes(state.team)) return false;
+    if (state.status && t.status !== state.status) return false;
+    if (state.cat && t.category !== state.cat) return false;
+    if (state.period && (!t.updated || now - t.updated > state.period * 3600e3)) return false;
+    if (state.q && !t.text.includes(state.q)) return false;
+    return true;
+  });
+}
+function topicHTML(t){
+  const ti = teamInfo(t.team);
+  const isNew = t.updated && Date.now() - t.updated < CONFIG.NEW_HOURS * 3600e3;
+  const resItems = t.coms.map(c => {
+    const ex = c.excerpt || "";
+    const point = c.point ? `<span class="r-point">${esc(c.point)}</span>` : "";
+    const meta = [c.tone, c.kind, c.sites].filter(Boolean).map(esc).join(" ・ ");
+    const link = safeUrl(c.url) ? ` <a href="${esc(c.url)}" target="_blank" rel="noopener">元記事</a>` : "";
+    if (!ex && !point) return "";
+    return `<li>${ex ? esc(ex) : ""}${point}<span class="r-meta">${meta}${link}</span></li>`;
+  }).filter(Boolean).join("");
+  const srcItems = t.srcs.map(s => {
+    const u = safeUrl(s.url);
+    const title = u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(s.title || u)}</a>` : esc(s.title);
+    const when = parseTime(s.posted_at);
+    return `<li>${title}<span class="s-site">${esc(s.site)}${when ? " ・ " + fmt(when) : ""}${String(s.retrieved).toUpperCase()==="TRUE" ? " ・ 本文確認済み" : ""}</span></li>`;
+  }).join("");
+  const nCom = t.coms.length || +t.n_comments || 0;
+  return `<details class="topic">
+    <summary>
+      <div class="t-meta"><span class="team">${ti.emoji} ${esc(ti.name)}</span>
+        ${t.status ? `<span class="pill st-${esc(t.status)}">${esc(t.status)}</span>` : ""}
+        ${t.category ? `<span class="pill cat">${esc(t.category)}</span>` : ""}
+        ${isNew ? `<span class="pill new">新着</span>` : ""}</div>
+      <p class="t-head">${esc(t.headline)}</p>
+      ${t.summary ? `<p class="t-sum">${esc(t.summary)}</p>` : ""}
+      <div class="t-foot"><span>${fmt(t.updated)}</span><span>${+t.n_sites || t.srcs.length || 0}サイト</span><span>レス ${nCom}</span>
+        ${t.related.length ? `<span>関連：${esc(t.related.join("・"))}</span>` : ""}<span class="more">反応と出典</span></div>
+    </summary>
+    <div class="t-body">
+      <div><h4>反応（転載レス・原文）</h4>${resItems ? `<ul class="res">${resItems}</ul>` : `<p class="quiet">取得できたレスはありません</p>`}</div>
+      <div><h4>出典</h4>${srcItems ? `<ul class="src">${srcItems}</ul>` : `<p class="quiet">${esc(t.sites || "出典の記録なし")}</p>`}</div>
+    </div>
+  </details>`;
+}
+function render(){
+  const d = state.data, main = document.getElementById("main");
+  const list = filtered();
+  const now = Date.now();
+  const recent = d.topics.filter(t => t.updated && now - t.updated < CONFIG.NEW_HOURS * 3600e3);
+  const day = d.topics.filter(t => t.updated && now - t.updated < 24 * 3600e3);
+  const key = d.topics.filter(t => t.updated && now - t.updated < 24 * 3600e3)
+    .sort((a,b) => ((+b.n_sites||0)*2 + (+b.n_comments||b.coms.length||0)) - ((+a.n_sites||0)*2 + (+a.n_comments||a.coms.length||0))).slice(0,5);
+  let html = `<section><div class="stats"><span><b>${list.length}</b>件を表示</span><span><b>${recent.length}</b>件が直近${CONFIG.NEW_HOURS}時間</span><span><b>${day.length}</b>件が24時間以内</span>${d.meta.coverage ? `<span>収録期間 ${esc(d.meta.coverage)}</span>` : ""}</div></section>`;
+  html += `<section><h2>🆕 直近${CONFIG.NEW_HOURS}時間</h2><div class="panel">${recent.length ? `<ul>${recent.map(t => `<li>【${esc(t.team)}】${esc(t.headline)}</li>`).join("")}</ul>` : `<p class="quiet">目立った新着なし</p>`}</div></section>`;
+  if (key.length) html += `<section><h2>📋 今日の主なトピック</h2><div class="panel"><ul>${key.map(t => `<li>【${esc(t.team)}】${esc(t.headline)}</li>`).join("")}</ul></div></section>`;
+
+  if (!list.length){
+    html += `<p class="state">条件に合うトピックはありません。期間を「全期間」にするか、絞り込みを外してください。</p>`;
+  } else if (state.view === "team"){
+    let league = "";
+    TEAMS.concat(teamsOutside(list)).forEach(ti => {
+      const items = list.filter(t => t.team === ti.name);
+      if (!items.length) return;
+      if (ti.league !== league){ league = ti.league; html += `<div class="league">${esc(league)}</div>`; }
+      html += `<section class="group"><h3>${ti.emoji} ${esc(ti.name)}<span class="count">${items.length}</span></h3>${items.map(topicHTML).join("")}</section>`;
+    });
+  } else {
+    html += `<section class="group">${list.slice(0, state.shown).map(topicHTML).join("")}</section>`;
+    if (list.length > state.shown) html += `<button class="btn loadmore" id="more" type="button">さらに表示（残り${list.length - state.shown}件）</button>`;
+  }
+  html += `<footer><p>データ：<a href="https://docs.google.com/spreadsheets/d/${esc(state.sheetId)}/edit" target="_blank" rel="noopener">NPB掲示板データ</a>（定期実行で追記）</p>
+    ${d.unreachable.length ? `<details><summary>巡回できなかったサイト（${d.unreachable.length}件）</summary><ul>${d.unreachable.slice(-15).reverse().map(u => `<li>${esc(u)}</li>`).join("")}</ul></details>` : ""}</footer>`;
+  main.innerHTML = html;
+}
+function teamsOutside(list){
+  const known = new Set(TEAMS.map(t => t.name));
+  return [...new Set(list.map(t => t.team).filter(n => !known.has(n)))].map(n => ({name:n||"その他",emoji:"⚾",league:"球界総合・海外"}));
+}
+
+load();
+</script>
+</body>
+</html>
