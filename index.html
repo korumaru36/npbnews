@@ -1,453 +1,219 @@
-<!doctype html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>NPBレポート</title>
-<meta name="description" content="プロ野球の最新ニュースとまとめサイトの反応を、Googleスプレッドシート「NPB掲示板データ」から読み込んで球団別に表示します。">
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@700;900&family=BIZ+UDPGothic:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@700;900&family=BIZ+UDPGothic:wght@400;700&family=M+PLUS+1+Code:wght@400;600&display=swap">
 <style>
-/* Layout: one reading column; sticky header with filters; topic cards that open to show sources and verbatim replies */
+/* Layout: two screens (list ⇄ thread). List = team tabs + topic rows. Thread = board-style posts like a 5ch log. */
 :root{
-  --bg:#F3F6F2; --surface:#FFFFFF; --ink:#18221D; --muted:#5B6A62; --line:#D7E0DA;
-  --accent:#1E6A47; --accent-ink:#F3F6F2; --accent-soft:#E2EFE7; --quote:#EEF2EF;
-  --s-official:#1E6A47; --s-official-bg:#E2EFE7;
-  --s-report:#2C5A8C;   --s-report-bg:#E3ECF6;
-  --s-rumor:#9A5B00;    --s-rumor-bg:#F8ECD6;
-  --s-joke:#6B6460;     --s-joke-bg:#ECE9E6;
-  --danger:#A8392C;     --danger-bg:#F6E3DF;
+  --bg:#F1F4F1; --surface:#FFFFFF; --ink:#18221D; --muted:#5D6B63; --line:#D5DED8;
+  --accent:#1E6A47; --accent-soft:#E0EEE6; --flag:#A8392C; --flag-soft:#F6E3DF;
+  --board:#EFEFE6; --board-ink:#1F1F1A; --resno:#1E6A47; --name:#2F7A3A; --date:#6B6B60; --anchor:#2456A6;
   --display:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif;
   --body:"BIZ UDPGothic","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
-  color-scheme:light;
+  --mono:"M PLUS 1 Code","BIZ UDGothic",ui-monospace,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#111814; --surface:#18221C; --ink:#E4ECE7; --muted:#97A79E; --line:#2B3831;
-  --accent:#6FC59A; --accent-ink:#0E1511; --accent-soft:#1F3328; --quote:#1D2922;
-  --s-official:#6FC59A; --s-official-bg:#1F3328;
-  --s-report:#8DB8EA;   --s-report-bg:#1C2A3A;
-  --s-rumor:#E6B464;    --s-rumor-bg:#3A2C14;
-  --s-joke:#B7AEA8;     --s-joke-bg:#2B2826;
-  --danger:#EE8A7C;     --danger-bg:#3A2220;
-  color-scheme:dark}}
+  --bg:#101612; --surface:#17201B; --ink:#E3EBE6; --muted:#97A69D; --line:#2A3730;
+  --accent:#6FC59A; --accent-soft:#1E3227; --flag:#EE8A7C; --flag-soft:#3A2220;
+  --board:#1A1F1B; --board-ink:#DADFD8; --resno:#7FD3A6; --name:#8BCB8F; --date:#9AA095; --anchor:#8DB4F0; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#111814; --surface:#18221C; --ink:#E4ECE7; --muted:#97A79E; --line:#2B3831;
-  --accent:#6FC59A; --accent-ink:#0E1511; --accent-soft:#1F3328; --quote:#1D2922;
-  --s-official:#6FC59A; --s-official-bg:#1F3328;
-  --s-report:#8DB8EA;   --s-report-bg:#1C2A3A;
-  --s-rumor:#E6B464;    --s-rumor-bg:#3A2C14;
-  --s-joke:#B7AEA8;     --s-joke-bg:#2B2826;
-  --danger:#EE8A7C;     --danger-bg:#3A2220;
-  color-scheme:dark}
+  --bg:#101612; --surface:#17201B; --ink:#E3EBE6; --muted:#97A69D; --line:#2A3730;
+  --accent:#6FC59A; --accent-soft:#1E3227; --flag:#EE8A7C; --flag-soft:#3A2220;
+  --board:#1A1F1B; --board-ink:#DADFD8; --resno:#7FD3A6; --name:#8BCB8F; --date:#9AA095; --anchor:#8DB4F0; color-scheme:dark}
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.7}
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:20;background:var(--accent)}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.7}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--accent)}
 .wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--accent);color:var(--accent-ink)}
-header.top .wrap{padding-block:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-header.top h1{font-family:var(--display);font-weight:900;font-size:1.2rem;margin:0;letter-spacing:.02em}
-.updated{font-size:.82rem;opacity:.92;font-variant-numeric:tabular-nums}
-.top-actions{margin-left:auto;display:flex;gap:6px;align-items:center}
-.btn{font:inherit;font-size:.82rem;font-weight:700;border-radius:8px;padding:5px 10px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
-header.top .btn,header.top select{background:transparent;color:var(--accent-ink);border-color:color-mix(in srgb,var(--accent-ink) 45%,transparent)}
-header.top select option{color:#18221D;background:#fff}
-select{font:inherit;font-size:.82rem;border-radius:8px;padding:5px 8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
-.btn:focus-visible,select:focus-visible,input:focus-visible,.chip:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-header.top .btn:focus-visible,header.top select:focus-visible{outline-color:var(--accent-ink)}
-
-.filters{background:var(--surface);border-bottom:1px solid var(--line)}
-.filters .wrap{padding-block:10px;display:flex;flex-direction:column;gap:8px}
-.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
-.chip{flex:none;font:inherit;font-size:.82rem;font-weight:700;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:99px;padding:3px 11px;cursor:pointer;white-space:nowrap}
-.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.row input[type=search]{flex:1 1 180px;min-width:0;font:inherit;font-size:.9rem;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.seg button{font:inherit;font-size:.8rem;font-weight:700;border:0;background:var(--bg);color:var(--muted);padding:5px 10px;cursor:pointer}
-.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
-
-main.wrap{padding-block:18px 56px;display:flex;flex-direction:column;gap:20px}
-h2{font-family:var(--display);font-weight:900;font-size:1.05rem;margin:0 0 8px;text-wrap:balance}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
-.panel ul{margin:0;padding-left:1.1em}
-.panel li{margin:2px 0}
-.quiet{color:var(--muted);margin:0}
-.stats{display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
-.stats b{font-size:1.05rem;color:var(--ink);font-variant-numeric:tabular-nums;margin-right:2px}
-
-.league{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:900;color:var(--accent);letter-spacing:.12em;font-size:.85rem;margin-top:4px}
-.league::after{content:"";flex:1;height:2px;background:var(--accent);opacity:.35}
-.group{display:flex;flex-direction:column;gap:10px}
-.group h3{font-family:var(--display);font-weight:900;font-size:1rem;margin:4px 0 0;display:flex;align-items:center;gap:8px}
-.count{font-family:var(--body);font-size:.72rem;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:99px;padding:0 8px}
-
-.topic{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-width:0}
-.topic>summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;flex-direction:column;gap:4px}
-.topic>summary::-webkit-details-marker{display:none}
-.t-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.75rem;color:var(--muted)}
-.team{font-weight:700;color:var(--ink)}
-.pill{font-size:.7rem;font-weight:700;border-radius:4px;padding:0 6px;line-height:1.7}
-.st-公式{color:var(--s-official);background:var(--s-official-bg)}
-.st-報道ベース{color:var(--s-report);background:var(--s-report-bg)}
-.st-噂レベル{color:var(--s-rumor);background:var(--s-rumor-bg)}
-.st-ネタ{color:var(--s-joke);background:var(--s-joke-bg)}
-.cat{border:1px solid var(--line);color:var(--muted)}
-.new{color:var(--danger);background:var(--danger-bg)}
-.t-head{font-size:1rem;font-weight:700;line-height:1.5;margin:0;text-wrap:balance}
-.t-sum{margin:0;font-size:.9rem;color:var(--ink)}
-.t-foot{display:flex;gap:12px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums}
-.t-foot .more{margin-left:auto;color:var(--accent);font-weight:700}
-.topic[open] .t-foot .more::after{content:" ▲"}
-.topic:not([open]) .t-foot .more::after{content:" ▼"}
-.t-body{border-top:1px solid var(--line);padding:12px 16px 14px;display:flex;flex-direction:column;gap:14px;min-width:0}
-.t-body h4{font-size:.78rem;letter-spacing:.08em;color:var(--muted);margin:0 0 6px}
-.res{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
-.res li{background:var(--quote);border-radius:6px;padding:6px 10px;font-size:.9rem;white-space:pre-line;overflow-wrap:anywhere}
-.res .r-meta{display:block;font-size:.72rem;color:var(--muted);margin-top:2px;white-space:normal}
-.res .r-point{display:block;font-size:.8rem;color:var(--muted)}
-.src{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;font-size:.85rem}
-.src li{overflow-wrap:anywhere}
-.src .s-site{font-size:.72rem;color:var(--muted);display:block;font-variant-numeric:tabular-nums}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--accent);color:var(--bg)}
+.bar .wrap{display:flex;align-items:center;gap:10px;padding-block:10px;min-height:52px}
+.bar h1{font-family:var(--display);font-weight:900;font-size:1.2rem;margin:0;letter-spacing:.02em}
+.bar time{margin-left:auto;font-size:.82rem;opacity:.9;font-variant-numeric:tabular-nums;white-space:nowrap}
+.back{appearance:none;border:1px solid color-mix(in srgb,var(--bg) 55%,transparent);background:transparent;color:var(--bg);font:700 .85rem var(--body);border-radius:999px;padding:4px 12px;cursor:pointer;white-space:nowrap}
+.back:focus-visible,.tab:focus-visible,.row:focus-visible,.seg button:focus-visible,.anc:focus-visible{outline:2px solid var(--flag);outline-offset:2px}
+.bar .ttl{font-family:var(--display);font-weight:700;font-size:.95rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tabs{background:var(--surface);border-bottom:1px solid var(--line)}
+.tabs .wrap{display:flex;flex-direction:column;gap:6px;padding-block:8px}
+.trow{display:flex;gap:6px;align-items:flex-start}
+.trow .bs{display:flex;flex-wrap:wrap;gap:6px}
+.trow .lb{flex:none;width:2.2em;padding-top:6px;font:700 .72rem var(--body);color:var(--muted)}
+.tab{flex:none;appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 .85rem var(--body);border-radius:999px;padding:4px 12px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.tab .n{font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.tab[aria-pressed="true"] .n{color:var(--bg);opacity:.85}
+main{padding-block:16px 48px}
+.stack{display:flex;flex-direction:column;gap:18px}
+h2{font-family:var(--display);font-weight:900;font-size:1rem;margin:0 0 8px;letter-spacing:.04em;color:var(--muted)}
+.list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.row{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:start;padding:12px 14px;border-top:1px solid var(--line);text-decoration:none;color:inherit;cursor:pointer}
+.row:first-child{border-top:0}
+.row:hover{background:var(--accent-soft)}
+.chip{font:700 .72rem var(--body);color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 6px;white-space:nowrap;margin-top:3px}
+[data-t="巨人"]{--tc:#F97709;--tt:#000}
+[data-t="阪神"]{--tc:#FFE100;--tt:#000}
+[data-t="DeNA"]{--tc:#0055A5;--tt:#fff}
+[data-t="広島"]{--tc:#E60012;--tt:#fff}
+[data-t="ヤクルト"]{--tc:#0A8A3E;--tt:#fff}
+[data-t="中日"]{--tc:#002569;--tt:#fff}
+[data-t="ソフトバンク"]{--tc:#F9C000;--tt:#000}
+[data-t="日本ハム"]{--tc:#006298;--tt:#fff}
+[data-t="ロッテ"]{--tc:#111;--tt:#fff}
+[data-t="楽天"]{--tc:#860010;--tt:#fff}
+[data-t="オリックス"]{--tc:#000F4C;--tt:#D4AF37}
+[data-t="西武"]{--tc:#1F3A93;--tt:#fff}
+.chip[data-t]{background:var(--tc,var(--accent-soft));color:var(--tt,var(--accent))}
+.tab[data-t]{background:var(--tc);border-color:var(--tc);color:var(--tt)}
+.tab[data-t] .n{color:var(--tt);opacity:.8}
+.tab[data-t="ロッテ"],.chip[data-t="ロッテ"]{box-shadow:inset 0 0 0 1px #888}
+.tab[data-t][aria-pressed="true"]{background:var(--tc);border-color:var(--tc);color:var(--tt);outline:3px solid var(--ink);outline-offset:2px}
+.tab[data-t][aria-pressed="true"] .n{color:var(--tt)}
+.row .h{font-weight:700;line-height:1.5;min-width:0;text-wrap:pretty}
+.row .meta{grid-column:2;font-size:.78rem;color:var(--muted);display:flex;gap:4px 10px;flex-wrap:wrap;line-height:1.5}
+.cnt{font:600 .76rem var(--mono);color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tag{display:inline-block;font-size:.7rem;font-weight:700;color:var(--flag);background:var(--flag-soft);border-radius:4px;padding:0 6px;margin-left:6px;vertical-align:2px}
+.new{display:inline-block;font:700 .66rem var(--mono);color:var(--bg);background:var(--flag);border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:2px}
+.empty{padding:14px;color:var(--muted);margin:0}
+.foot{font-size:.8rem;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+/* thread */
+.thead{display:flex;flex-direction:column;gap:8px}
+.thead h3{font-family:var(--display);font-weight:900;font-size:1.25rem;line-height:1.45;margin:0;text-wrap:balance}
+.kv{display:flex;gap:8px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.lbl{font-size:.7rem;font-weight:700;letter-spacing:.1em;color:var(--muted)}
 a{color:var(--accent);text-underline-offset:2px}
-.state{text-align:center;padding:28px 16px;color:var(--muted)}
-.state.err{color:var(--danger);background:var(--danger-bg);border-radius:10px;text-align:left}
-.loadmore{align-self:center}
-details.related>summary{cursor:pointer;font-weight:700;color:var(--muted);font-size:.9rem;padding:6px 0}
-details.related .group{margin-top:8px}
-footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
-footer ul{margin:4px 0 0;padding-left:1.1em}
-@media (prefers-reduced-motion:no-preference){.topic{transition:border-color .15s}.topic:hover{border-color:var(--accent)}}
+.note{font-size:.8rem;color:var(--muted);margin:0}
+.seg{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface);width:max-content;max-width:100%}
+.seg button{appearance:none;border:0;background:transparent;color:var(--ink);font:700 .85rem var(--body);padding:6px 14px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--bg)}
+.board{background:var(--board);color:var(--board-ink);border:1px solid var(--line);border-radius:6px;padding:10px 14px;display:flex;flex-direction:column}
+.post{padding:9px 0;border-top:1px dashed color-mix(in srgb,var(--board-ink) 18%,transparent);scroll-margin-top:120px}
+.post:first-child{border-top:0}
+.post.hl{background:color-mix(in srgb,var(--anchor) 14%,transparent)}
+.ph{font:400 .8rem var(--mono);display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}
+.ph .no{color:var(--resno);font-weight:600;font-variant-numeric:tabular-nums}
+.ph .nm{color:var(--name);font-weight:600}
+.ph .dt{color:var(--date);font-variant-numeric:tabular-nums}
+.pb{margin:4px 0 0 1.2em;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.75}
+.anc{appearance:none;border:0;background:none;padding:0;color:var(--anchor);font:inherit;text-decoration:underline;cursor:pointer}
+.omit{font-size:.8rem;color:var(--muted);margin:8px 0 0}
+@media (prefers-reduced-motion:no-preference){.post.hl{transition:background .6s}}
 </style>
-</head>
-<body>
 
-<header class="top">
-  <div class="wrap">
-    <h1>⚾ NPBレポート</h1>
-    <span class="updated" id="updated">読み込み中…</span>
-    <div class="top-actions">
-      <select id="month" aria-label="表示する月" hidden></select>
-      <button class="btn" id="reload" type="button">更新</button>
-    </div>
-  </div>
-</header>
-
-<section class="filters" aria-label="絞り込み">
-  <div class="wrap">
-    <div class="chips" id="teamChips" role="group" aria-label="球団"></div>
-    <div class="row">
-      <input type="search" id="q" placeholder="選手名・キーワードで検索" aria-label="キーワード検索">
-      <div class="seg" role="group" aria-label="期間" id="period">
-        <button type="button" data-p="24" aria-pressed="false">24時間</button>
-        <button type="button" data-p="168" aria-pressed="true">7日</button>
-        <button type="button" data-p="0" aria-pressed="false">全期間</button>
-      </div>
-    </div>
-    <div class="row">
-      <div class="chips" id="statusChips" role="group" aria-label="情報の確度"></div>
-      <select id="cat" aria-label="カテゴリ"><option value="">すべてのカテゴリ</option></select>
-      <div class="seg" role="group" aria-label="並び順" id="view">
-        <button type="button" data-v="team" aria-pressed="true">球団別</button>
-        <button type="button" data-v="time" aria-pressed="false">新着順</button>
-      </div>
-    </div>
-  </div>
-</section>
-
-<main class="wrap" id="main">
-  <p class="state">スプレッドシートからデータを読み込んでいます…</p>
-</main>
+<div id="app"></div>
 
 <script>
-/* ===== 設定 =====
-   データ元：Googleスプレッドシート「NPB掲示板データ」
-   シートは「リンクを知っている全員が閲覧可」にしておく必要があります。 */
-const CONFIG = {
-  SHEET_ID: "1AoL_dQILhYdTYpdGqnys3RJVBPMutr1l1zOfedBYwSM",
-  TABS: { topics: "topics", sources: "sources", comments: "comments", meta: "meta", archives: "archives" },
-  PAGE_SIZE: 40,          // 新着順で一度に表示する件数
-  NEW_HOURS: 4            // 「新着」バッジを付ける時間（取得サイクルと同じ4時間）
-};
-
+const DATA = {"stamp": "11/07 06:43", "iso": "2026-11-07T06:43+09:00", "unreach": "ドラ速・竜速・鷹速・なんじぇいスタジアム・日刊やきう速報（robotsで取得拒否）、中日スポーツ・Yahoo!ニュース記事本文（robots）、スポーツ報知（ブロック）。なんJまとめアンテナは11/06 18時台で更新停止表示。△サイト、公式サイト・公式Xは未巡回", "main": ["t3a1c9e0b21", "t5b2d7f1c43", "t8e5a0c4f76", "tf87e708fb7", "t06d28ec1fe"], "topics": [{"id": "td3af5b9ecb", "team": "巨人", "lg": "se", "rel": "", "cat": "ドラフト・新入団", "st": "報道ベース", "h": "ドラ1指名拒否、ファンにまだ不満", "tag": "", "news": "ドラ1指名選手が入団拒否の姿勢とされる件。ほかに平山が830万増の1250万円で契約更改、湯浅大が3軍コーチに", "links": [{"n": "デイリースポーツ", "u": "https://www.daily.co.jp/baseball/2026/11/06/0021006735.shtml"}], "src": {"n": "永久不滅ジャイアンツ", "u": "https://egiants.blog.jp/archives/63590088.html"}, "note": "前回取得分。取得ツールの制限で、原文で取れたのは約40件中2件", "isNew": false, "posts": [{"k": "res", "no": null, "at": null, "b": "なんでいけると思ったんやろ"}, {"k": "res", "no": null, "at": null, "b": "長嶋ブランドの神通力も、通用しなくなったなw"}]}, {"id": "t5b2d7f1c43", "team": "阪神", "lg": "se", "rel": "オリックス/ロッテ/中日", "cat": "FA移籍", "st": "報道ベース", "h": "FA3人獲りへ24億円超を用意　上林3年4億前後、中川・小島に4年10億円規模", "tag": "報道", "news": "スポーツ報知が11/7付で報道。輝マネーで球団初のFA3人獲りへ。AIでのデータ取得を許可されていないサイトです。元記事を参照してください。", "links": [{"n": "スポーツ報知（Yahoo!）", "u": "https://news.yahoo.co.jp/articles/a71bf215a2024e884004547e3e10e029a4aa45b6"}], "src": {"n": "阪神タイガースちゃんねる", "u": "https://hanshintigers1.blog.jp/archives/46755123.html"}, "note": "記事は中川のFA行使スレ。取得できたレス31件・コメント4件を全件掲載", "isNew": true, "posts": [{"k": "res", "no": 8, "at": null, "b": "中川は間違いなく来そうな感じはする 小島は半々かな"}, {"k": "res", "no": 12, "at": null, "b": "阪神入りを決断している中川まだか"}, {"k": "res", "no": 16, "at": null, "b": "ギリギリまで決めんやろな 相手もオリックスだけなら阪神と慌てて条件提示する必要もない"}, {"k": "res", "no": 23, "at": null, "b": "中川が居てくれないともはや打線にならんのだが クリンナップとは言わずとも6番打てる奴がいなさすぎる 取らん選択肢はない"}, {"k": "res", "no": 24, "at": null, "b": "中川は去年は9番以外の全ての打順でスタメンになってたな ケースバッティングができる打者ゆうことなんかな？"}, {"k": "res", "no": 30, "at": null, "b": "まあ自らパ・リーグには行かない宣言した中川は、うちかオリの選択しかないんやから、ゆっくり考えようや 慌てる必要はなんもない。"}, {"k": "res", "no": 202, "at": null, "b": "早く決めたらプロテクトリストで佐藤守らなあかんくなるから引き伸ばしてくれてるんや"}, {"k": "res", "no": 32, "at": null, "b": "キナマンVSオリ姫(中川)"}, {"k": "res", "no": 46, "at": null, "b": "その前にオリ姫はTORACOにならんやろ。あこの球団何故かやたら阪神嫌いやし。こっちは何も思わんのやけどw"}, {"k": "res", "no": 33, "at": null, "b": "まぁ裏交渉のおかげでもう中川小島はもう決まってるとも言える 真面目にルール守ってたら損やからな タイガースはいっぱい記者かかえてるんだから利用したらよい その見返りに契約確定情報を流せばいい"}, {"k": "res", "no": 40, "at": null, "b": "オリックス・中川圭太がFA権行使「後悔のない決断を」　昨年は初のベストナイン…球団発表 | Full-Count（フルカウント） ― 野球ニュース・速報・コラム ―…"}, {"k": "res", "no": 62, "at": null, "b": "数年後には中川の映画やるんか"}, {"k": "res", "no": 143, "at": null, "b": "これは阪神やな中川 選手生活を終えた後の自分を想像した時に、後悔のない決断をしたいと思いFA権を行使する事に至りました。 これからの野球人生をどう過ごして行くのかを含め、じっくりと考えたいと思います。"}, {"k": "res", "no": 144, "at": null, "b": "巨人とか裏では声掛けたやろうし それ断ってるんやから もう阪神やろな"}, {"k": "res", "no": 146, "at": null, "b": "中川に４年１０億の価値があるんかな。。。 もちろん来てほしいけど"}, {"k": "res", "no": 157, "at": null, "b": "問題は中川獲っただけで補強しました感が出ること はっきり言うてそんな力はないと思う"}, {"k": "res", "no": 159, "at": null, "b": "伏見がおるし中川はすぐに打ち解けるだろ"}, {"k": "res", "no": 226, "at": null, "b": "来年から中川2人になるんか"}, {"k": "res", "no": 251, "at": null, "b": "てかFAでわざわざ取るってことは期待してるってことやからね球団からは熊谷木浪糸原も期待されてるから使われるわけだ 中川がクソみたいな成績で固定されても叩かないでやってくれな"}, {"k": "res", "no": 311, "at": null, "b": "小島中川2人共阪神しか声かからないんだろう？ 何か寂しい選手しかFA狙わないんだな　もっと勝負かけろよ"}, {"k": "res", "no": 314, "at": null, "b": "筒香とかFA市場に出ないし堅実な補強だと思うぞ 読売みたいに何でもかんでも声かけると逆に逃げられる"}, {"k": "res", "no": 870, "at": null, "b": "今年の読売はターゲット絞ってるよ"}, {"k": "res", "no": 318, "at": null, "b": "中川は阪神だけだな 裏で決まってるのかもしらんけど 小島は横浜が調査してるからもし金積まれたら普通に負けるぞ"}, {"k": "res", "no": 325, "at": null, "b": "中川、痩せた大山みたいな顔してるな"}, {"k": "res", "no": 360, "at": null, "b": "阪神入り決断のオリックス中川FA権行使"}, {"k": "res", "no": 367, "at": null, "b": "オリックス中川 「本日、FA権を行使する手続きをさせていただきました。ドラフト7位でプロ野球の世界に入った時は、自分がFA権を取るまでの選手になれると思っていませんでした。 球団関係者の方々、ファンのみなさまには、本当に感謝しています。…"}, {"k": "res", "no": 373, "at": null, "b": "これからの野球人生をどう過ごし方 ・コーチ手形 ・テレビラジオの解説"}, {"k": "res", "no": 376, "at": null, "b": "中川来る気満々やな"}, {"k": "res", "no": 386, "at": null, "b": "中川いるか？ レフトは普通に近本だろ"}, {"k": "res", "no": 395, "at": null, "b": "中川は肩が強いなら 中川→センター 近本→レフト で良くないかね？"}, {"k": "res", "no": 753, "at": null, "b": "中川のファンって基本的にオリ姫やから阪神アンチではないやろ オリ姫＝阪神アンチというイメージは全くない むしろ個人のファンなら阪神に鞍替えする可能性すらある"}, {"k": "cm", "no": 1, "at": null, "b": "待っとるやで！ なり振り構わず補強せんと虎の来季は無い"}, {"k": "cm", "no": 2, "at": null, "b": "残念ながら中川の方は近本と大差ないしセンター守備は人様にお見せできるようなレベルではない。 レフトかDHしか起用の枠はない。"}, {"k": "cm", "no": 3, "at": null, "b": "糸原7000万→5500万(2026) .0500 👆これ見たら中川4年10億とか激安だろw"}, {"k": "cm", "no": 4, "at": null, "b": "ファーストもできます"}]}, {"id": "t6c3e8a2d54", "team": "阪神", "lg": "se", "rel": "", "cat": "FA移籍", "st": "公式", "h": "伏見寅威、海外FA権を行使せず残留", "tag": "", "news": "11/6に球団が発表。「より一層責任感を持ってプレーしていきたい」", "links": [{"n": "デイリースポーツ", "u": "https://www.daily.co.jp/baseball/2026/11/06/0021006816.shtml"}], "src": {"n": "虎速", "u": "https://torasoku.blog.jp/archives/1086059254.html"}, "note": "前回取得分。原文で取れたのは一部のみ", "isNew": false, "posts": [{"k": "res", "no": null, "at": null, "b": "伏見残留は太田撤退の時点でほぼ確やったからな"}, {"k": "res", "no": null, "at": null, "b": "伏見残留ほんま安心したわ"}, {"k": "res", "no": null, "at": null, "b": "伏見複数年て骨埋める覚悟か"}, {"k": "res", "no": null, "at": null, "b": "CSでは最後の試合を託してしまう形になったから"}, {"k": "res", "no": null, "at": null, "b": "残留してくれて感謝"}, {"k": "res", "no": null, "at": null, "b": "残留よかおめ"}, {"k": "res", "no": null, "at": null, "b": "打撃もええところで打つから成績以上に活躍してる印象"}]}, {"id": "tf87e708fb7", "team": "DeNA", "lg": "se", "rel": "広島/オリックス", "cat": "戦力外・退団", "st": "報道ベース", "h": "元広島・小園海斗の獲得を調査か", "tag": "報道", "news": "FRIDAY発。本命はオリックスからFA宣言の宗佑磨で、獲得できなければ小園へ切り替えの可能性とされる。公式発表なし", "links": [], "src": {"n": "De速", "u": "https://de-baystars.jp/archives/63590526.html"}, "note": "転載レス9件・読者コメント全244件を掲載（取得ツールが長文を途中で切ったものは「…」付き）。（実在人物への未確認の告発を含むレス12件を省略）", "isNew": false, "posts": [{"k": "res", "no": 618, "at": null, "b": "はいはい"}, {"k": "res", "no": 620, "at": null, "b": "関係者ってなんとでも言えるからなあ 極端な話ob全員関係者やし"}, {"k": "res", "no": 625, "at": null, "b": "今の小園ははっきりいってな… ゾンビ疑惑組はみんな1年浪人してからでええ気はする"}, {"k": "res", "no": 627, "at": null, "b": "小園はゾンビ云々以前に戦力として要らないんんっぢょなぁ…"}, {"k": "res", "no": 632, "at": null, "b": "小園はゾンビ以前から素行の悪さと意識の低さが問題にされてて、別に守備がうまいわけでもなく、首位打者取ったことがあるとはいえ単打ばかり…"}, {"k": "res", "no": 638, "at": null, "b": "来なかったら若手でええし牧コンバートしてもええし"}, {"k": "res", "no": 635, "at": null, "b": "(ヽ*´◯`*)宗来るのかなあ"}, {"k": "res", "no": 636, "at": null, "b": "どれだけ補強に力入れるか次第や"}, {"k": "res", "no": 637, "at": null, "b": "小園は会見であんな態度だった時点でNPBはあるのだろうか"}, {"k": "cm", "no": 1, "at": null, "b": "どうせ来ないし、いらない チームの士気を悪くする 宮下や成瀬出してくれたほうが嬉しい"}, {"k": "cm", "no": 2, "at": null, "b": "大型補強（小園）"}, {"k": "cm", "no": 3, "at": null, "b": "足が速い代わりに素行の悪い倉本、いる？"}, {"k": "cm", "no": 4, "at": null, "b": "新井からも9段からも嫌われてやる気無くしたのは分かるけどそれをあからさまにプレーで出す奴やからな プロ失格でしょ こんな奴いらないどころかもう見たくないからNPBから消えて下さい"}, {"k": "cm", "no": 5, "at": null, "b": "自分から発信出来ないのは広島が語ってないところもあるはず 選手を信頼出来ないと言ったのはどういう事でしょう 南場オーナーが１番気にしてるコンプライアンスに引っかかるしね 調査すらしないと思うけど"}, {"k": "cm", "no": 6, "at": null, "b": "いらんけど、筒香の去就が怪しくて宮下石上がキャンプ間に合うか怪しい状況で宗or小園をサードで確保するのは重要だろうな まあ机上論なら小田井上朋で埋まるけど流石に計算したくない"}, {"k": "cm", "no": 7, "at": null, "b": "謝罪会見の態度からして取らない方がいい 心の中でどう思ってようがあそこは全力で反省してるフリでもすれば良かったのそれすらやらないとこから察するめたんがある"}, {"k": "cm", "no": 9, "at": null, "b": "ドラフトで指名したからと言って獲得するわけじゃねぇからな あと要りません"}, {"k": "cm", "no": 10, "at": null, "b": "小園健太をクビにして別の小園を？"}, {"k": "cm", "no": 11, "at": null, "b": "かつては喉から手が出るほど欲しかったのになあ まあ実力自体はまだあるんだろうけど取ったら流石に周りから非難を浴びるだろ せめて何らかの形で禊を行えばありだが多分それも無いな"}, {"k": "cm", "no": 13, "at": null, "b": "宮崎3７で宗が３０かぁ きたら５年は使えるな どうせ来ないだろうけど"}, {"k": "cm", "no": 14, "at": null, "b": "工藤じゃないが、あのくらいカリスマ性があるというか締め付けが利きそうな監督がいるなら割と取ってもいい気はしてるんだけどな…"}, {"k": "cm", "no": 15, "at": null, "b": "まあ横浜は危なかっかしいのに手を出す癖あるがコイツだけはアウトよ"}, {"k": "cm", "no": 16, "at": null, "b": "獲っちゃえば最初は叩かれても成績さえ残せば称賛されるしファンは受け入れそうだがね 結局は活躍すれば全部チャラだよ"}, {"k": "cm", "no": 17, "at": null, "b": ">>3 倉本は虚偽報告なんかしてない、信頼できないはプレイ以外にないだろ"}, {"k": "cm", "no": 18, "at": null, "b": "横浜DeNAゾンビーズになるのか"}, {"k": "cm", "no": 19, "at": null, "b": "横浜のまとめサイトがこんなしょーもない飛ばし記事まとめんなよ"}, {"k": "cm", "no": 20, "at": null, "b": ">>12 単に仕事なくなるから財産分与で利確されただけやろ 首なったらあとは旦那の生活する分減るだけなんだから…"}, {"k": "cm", "no": 21, "at": null, "b": "5000円なら獲得しても良さそう"}, {"k": "cm", "no": 22, "at": null, "b": "稼働すれば間違いなく戦力にはなるがDeが取った瞬間広島が隠してた色々がリークされそう"}, {"k": "cm", "no": 23, "at": null, "b": "絶対に獲らないでくれ 仮に宗の獲得に失敗しても小園はいらんわ"}, {"k": "cm", "no": 24, "at": null, "b": ">>3 セカンドで使ってファースト牧にしたら良いんじゃない？"}, {"k": "cm", "no": 25, "at": null, "b": "支配下じゃなくて育成で取るならギリ許すかもしれんってくらいだな 最低でもキャンプは泳がせて素行を見ないとダメ"}, {"k": "cm", "no": 26, "at": null, "b": ">>20 良くてそれな時点でダメじゃないすか"}, {"k": "cm", "no": 27, "at": null, "b": "これはダメだろ 広島が戦力になるのはわかっていたうえでプロ野球のモラルに反しているから球界のためにもクビにしたのに…"}, {"k": "cm", "no": 28, "at": null, "b": "生まれ変われたらやりそうな気するけどなあ。 一昨年首位打者だよ？"}, {"k": "cm", "no": 29, "at": null, "b": "腐ったミカン入らない"}, {"k": "cm", "no": 30, "at": null, "b": "1番悪いパターンはそこそこの大金で取って開幕から割と活躍してたら5月くらいに広島時代の悪事暴露されてクビになるパターンか？ そんなん有るかもなら取らん方がいいわ"}, {"k": "cm", "no": 31, "at": null, "b": "素行に問題あるのに取るわけないだろ"}, {"k": "cm", "no": 33, "at": null, "b": "めちゃくちゃよくて中村ノリパターンだろうなとは思う 一瞬改心して活躍するけど、また別件でやらかしてクビ"}, {"k": "cm", "no": 34, "at": null, "b": "つーかこれで宗来なかったら相当性格悪い選手だよ。 わざわざ「これまで世話になったオリックスさん」みたいな言い方でミスリード誘って年俸上げる気だったんだろ？…"}, {"k": "cm", "no": 35, "at": null, "b": "小園を一番必要としてる広島が捨てたのに拾うとか 何考えてんだとしか言いようがない てかオーナーが一番避けそうな案件だろ"}, {"k": "cm", "no": 36, "at": null, "b": ">>17 日本語読めない人w"}, {"k": "cm", "no": 37, "at": null, "b": ">>1 いらないって"}, {"k": "cm", "no": 38, "at": null, "b": ">>1 どうせ内野守備は望めないんだから、wRC+90-100ぐらいの代打ってなると価値はあるんじゃね？ 年俸1500万くらいで"}, {"k": "cm", "no": 39, "at": null, "b": "DeNA「大丈夫だ、俺が様子を見てくる。すぐ戻る」 こうやってゾンビは増えていくのだ・・・"}, {"k": "cm", "no": 40, "at": null, "b": "ドラ1で指名したくらいやし欲しいだろうな‥"}, {"k": "cm", "no": 41, "at": null, "b": "いらんよ"}, {"k": "cm", "no": 42, "at": null, "b": "大丈夫、絶対に宗は来るから。 息子が大阪勤務になったから呼んだ母親が関東に戻りたいんだろ？…"}, {"k": "cm", "no": 43, "at": null, "b": "小園が普通に取って問題ないなら宗に目もくれず小園に速攻行ってると思うし、南場ママ含め流石に地雷なのは認識してるやろ"}, {"k": "cm", "no": 44, "at": null, "b": "関係者って好き勝手言える言葉だよね 政府関係者→記者クラブに属している〇〇議員の親族や友達とか…"}, {"k": "cm", "no": 45, "at": null, "b": "ショートって万全なら成瀬と石上どっち上なん 他ファンより"}, {"k": "cm", "no": 47, "at": null, "b": "宗と比べれば格安というメリットしかないが 広島であんな感じなら横浜という誘惑も輩ももっと多い場所は向いてないんじゃないか"}, {"k": "cm", "no": 48, "at": null, "b": "まあ南場ママがいちばん嫌うタイプやね"}, {"k": "cm", "no": 49, "at": null, "b": "調査すらしていないと思うよ"}, {"k": "cm", "no": 50, "at": null, "b": "調査の前にバット蹴りに対して新井と小園に謝罪する方が先"}, {"k": "cm", "no": 51, "at": null, "b": ">>1 森をショートに戻せば小園はいらない"}, {"k": "cm", "no": 52, "at": null, "b": "コイツは時限爆弾みたいなもんだろ？ いつ爆発して被害に巻き込まれるか分からない危ないもん取るなよ！"}, {"k": "cm", "no": 53, "at": null, "b": "粘って四球をもぎ取る矢野の方がいいのでは 羽月も現役復帰してくれれば欲しい"}, {"k": "cm", "no": 54, "at": null, "b": "打撃成績にムラがあるのが気がかり 一試合 よくても次の好調が いつになるか？…"}, {"k": "cm", "no": 55, "at": null, "b": ">>47 誘惑に負けて例の議員の操り人形になるかもな笑"}, {"k": "cm", "no": 56, "at": null, "b": ">>45 成瀬 石上はショートにしてはパワーがあるってだけでスタメンを託すには厳しい"}, {"k": "cm", "no": 57, "at": null, "b": "ドラ１の健太を戦力外にして、海斗取るのかいな？？"}, {"k": "cm", "no": 58, "at": null, "b": "【先発】東、森下暢(広島FA)、平良、石田裕、外国人、星野(ドラ1)…"}, {"k": "cm", "no": 59, "at": null, "b": "ツーアウトから単打、単打で終わる攻撃はよく見たから、下位打線でもツーベースでチャンス作れる長打のある打者の方がいいな"}, {"k": "cm", "no": 60, "at": null, "b": ">>51 つまり小園はいるってこと？"}, {"k": "cm", "no": 61, "at": null, "b": "しかし本当に獲得を検討してるとしたら球団の小田への期待って相当低いんだな"}, {"k": "cm", "no": 62, "at": null, "b": ">>58 これ森下と牧原の補償はどうなってるん？ そもそも来るか怪しいのは置いといて"}, {"k": "cm", "no": 63, "at": null, "b": "さすがにきな臭い奴はいらん"}, {"k": "cm", "no": 64, "at": null, "b": "アヘ単守備難は抱えるリスクに見合わなさすぎやろ 山川とはわけが違うわ"}, {"k": "cm", "no": 65, "at": null, "b": ">>61 サードで送球やらかしてるイメージだし、ファーストか送球距離の短いセカンドで考えてるんじゃないか セカンドに置ける佐野ってイメージだわ"}, {"k": "cm", "no": 66, "at": null, "b": "戦力外後の会見の態度が悪かったのがなあ 南場ママの嫌いなタイプっぽいしうちはないな"}, {"k": "cm", "no": 67, "at": null, "b": ">>17 素行が悪くて、能力が倉本レベルの選手いるか？って事"}, {"k": "cm", "no": 68, "at": null, "b": "嘘泣きでもいいから頭下げてるか、せめてゾンビ以外のやらかしがなきゃ別に良かったんだけどな…"}, {"k": "cm", "no": 69, "at": null, "b": "さっきからオーナーの名前出してる奴らがいるけど ここのオーナーは金は出すけど現場に口は出さないのが美点じゃなかったっけ？…"}, {"k": "cm", "no": 70, "at": null, "b": "宗が争奪戦？？？どこと？？？ あっさり取れるでしょ。 無理やりDeNAを悪者にしたいだけの記事"}, {"k": "cm", "no": 71, "at": null, "b": ">>70 オリックスとの、ってことやろ あの球団なら金は積めるだろうし"}, {"k": "cm", "no": 72, "at": null, "b": ">>30 \"心を入れ替えれば\"って前提条件成立させるのDeは苦手中の苦手だからな"}, {"k": "cm", "no": 73, "at": null, "b": "「\"稼働できれば\"戦力」ってフレーズに何回騙されんねん スペだろうがサボりだろうが警察沙汰だろうが変わらんわ"}, {"k": "cm", "no": 74, "at": null, "b": ">>1 そりゃ調査するよね…明らかに小園は戦力的にはピンズドだもんな。しかも安く契約できるしダメなら切ればいいだけの話だし"}, {"k": "cm", "no": 75, "at": null, "b": ">>38 内野守備もマツダ本拠地であの数字だけど、マツダでの出場がかなり減るから数字は良くなると思うよ。…"}, {"k": "cm", "no": 76, "at": null, "b": ">>67 能力が倉本レベルならいらない 小園は能力は倉本レベルではなく今年の日本代表だったので必要"}, {"k": "cm", "no": 77, "at": null, "b": ">>6 小園獲得したらほぼ間違いなく正ショート起用だけどね。ショート控えを林、成瀬で…"}, {"k": "cm", "no": 78, "at": null, "b": ">>45 石上だろうね パワー、肩、走力が大幅に石上が上。 守備指標も石上の方が優秀"}, {"k": "cm", "no": 79, "at": null, "b": ">>70 オリックスとの争奪戦 ちなみにベイスターズはサードレギュラー起用までは確約できないからそこはオリックスより明確にデメリットになるかもね"}, {"k": "cm", "no": 81, "at": null, "b": "宗より 獲得できるなら坂倉の方が欲しいな、三塁手は打力がマスト"}, {"k": "cm", "no": 82, "at": null, "b": "いかにもカープの選手、って奴やったな ゴロツキ もうNPBでは無理でしょ"}, {"k": "cm", "no": 83, "at": null, "b": "こいつだけはねえわ こんなの取ったら品性疑う 今年のテルレベルの成績でやっと素行に目をつぶれるかどうか検討していいレベルだろこんなの"}, {"k": "cm", "no": 84, "at": null, "b": "別に安く単年で獲得するぶんには良いやろ ダメならすぐ切れば良いし 戦力には確実になるだろうし そして素行に問題なければこういう案件を復活させたというところで評価は上がる"}, {"k": "cm", "no": 85, "at": null, "b": "バウアーや デュプ 藤浪と契約した横浜だぞ？ 俺は失敗すると思う"}, {"k": "cm", "no": 86, "at": null, "b": "絶対に取るべき 今年だけ確変の宗より若くて首位打者経験もあり遊撃もやれなくはない小園の方が圧倒的に戦力として上 というか両方取れ"}, {"k": "cm", "no": 87, "at": null, "b": "宗の獲得ができるかどうか関係なく、小園なんて獲得したら終わりだよ"}, {"k": "cm", "no": 88, "at": null, "b": ">>1 宮下しばらくムリだからね 小園は戦力的にはいるよ"}, {"k": "cm", "no": 89, "at": null, "b": ">>86 理想は小園＋坂倉の獲得"}, {"k": "cm", "no": 90, "at": null, "b": "牧がポスティングで出ていくならセカンド要員としてはあり 三森はセンター起用多くなりそうだし林はポンコツで使えないし"}, {"k": "cm", "no": 91, "at": null, "b": "宮下と石上がスぺっていなければ候補にも挙がらなかったとは思う 単純に内野多すぎだしこのチーム"}, {"k": "cm", "no": 92, "at": null, "b": ">>90 小園なんかより林の方が100倍マシwwwwwwwwwwwwww"}, {"k": "cm", "no": 93, "at": null, "b": "小園推しはゾンビ関係者？問題児押し付けようとすんなよw"}, {"k": "cm", "no": 94, "at": null, "b": "アヘ単ってバカにされるけど、広島で上位を打ってたから物足りないってだけで、普通に小園が78番にいたら脅威だよ"}, {"k": "cm", "no": 95, "at": null, "b": "ゾンビ球団草"}, {"k": "cm", "no": 96, "at": null, "b": "サードやってたUZR見たら宮崎より守備範囲狭かったけど本当に大丈夫か？"}, {"k": "cm", "no": 97, "at": null, "b": ">>94 メリットよりデメリットの方がデカいやろって話やろ 例え.290くらい打ててもいらない"}, {"k": "cm", "no": 98, "at": null, "b": "ぶーんとではDeが小園獲得する事に不快感あらわだったな。 バウアー藤浪とか獲って聖人ヅラすんなってさ。…"}, {"k": "cm", "no": 99, "at": null, "b": ">>90 なんか見る目なくて草 もちろん小園は獲得したらレギュラー遊撃手で起用できるレベルだが 小園を除いた現状のショート候補なら 宮下＞＞林＞成瀬＞＞京田、石上＞加藤 だぞ"}, {"k": "cm", "no": 100, "at": null, "b": "この手の奴は取らんほうがいいんだよ 巨人がとったら褒められて DeNAがとったら猛烈バッシング それが②日本野球界だ"}, {"k": "cm", "no": 101, "at": null, "b": ">>96 所詮UZRだからね 同じ条件（本拠地ハマスタなのか、本拠地マツダなのか）…"}, {"k": "cm", "no": 102, "at": null, "b": ">>98 もはや適当ではないんだよ 普通に獲得が結構現実的なレベルだと思う どう考えて小園は戦力的にはラストピースレベルではまるだろうし"}, {"k": "cm", "no": 103, "at": null, "b": ">>97 素行が別に入団後問題ないのならメリットしかない"}, {"k": "cm", "no": 105, "at": null, "b": "人工芝が有利って本当かなぁ大和もUZR悪くなったし横浜に来たら良くなるとは思えないけどな"}, {"k": "cm", "no": 106, "at": null, "b": ">>105 大和に関しては最初の2年はプラスで、その後マイナスなのは単純に年齢的に厳しくなった…"}, {"k": "cm", "no": 107, "at": null, "b": "小園は戦力としては使えそうみたいな風潮なに？ 首位打者はまぐれやし守備もこいつの怠慢プレーは酷いぞ"}, {"k": "cm", "no": 108, "at": null, "b": "小園はもちろん素晴らしい能力を持っている選手だが課題も多いし怠慢のケもある 最低でも何かしら叩き直さなきゃ無理だから…"}, {"k": "cm", "no": 109, "at": null, "b": "ヒヤヒヤしながら所属させる選手なんていらん"}, {"k": "cm", "no": 110, "at": null, "b": "性根叩き直すなんてDeが1番苦手なことやん そんな前提条件いる時点でやめとけ"}, {"k": "cm", "no": 111, "at": null, "b": ">>107 小園は 通算 打率.280 OPS.680 だぞ確かに首位打者は上振れかもしれんが、打撃力は遊撃手としてはかなり高水準。…"}, {"k": "cm", "no": 112, "at": null, "b": ">>75 甲子園とマツダが難しいのはそうなんだけど、本格的に数字落とす前の山田哲人見てるみたいなんだよな。…"}, {"k": "cm", "no": 114, "at": null, "b": "小園だけの問題じゃなくて他の選手にも悪影響を与える可能性が高いのに上のコメントでやたら小園のことを持ち上げるやつはそういうところも見てないのかね…"}, {"k": "cm", "no": 115, "at": null, "b": "MLB追放されたバウアー獲った球団だから小園とるならDeNAって思われてないかね Cランクなのが宗の獲得競争激化させてるのかな…"}, {"k": "cm", "no": 116, "at": null, "b": "サードには足らん打撃、セカンドショートには足らん守備、晴れない疑惑 いらん 小園取るなら化ける可能性のある田村の方がいいわ"}, {"k": "cm", "no": 117, "at": null, "b": "あれこれ高評価にみえる小田は小園の比較にもならない云う事かな。"}, {"k": "cm", "no": 118, "at": null, "b": "広島流出が酷すぎて流石に見るに耐えなかった金満便器から東浜の施し受けてて草"}, {"k": "cm", "no": 119, "at": null, "b": "バウアー獲得でアメリカからゴミ箱言われた球団やぞ？小園なんて1番欲しがる存在🤥素直に喜ぼうや"}, {"k": "cm", "no": 120, "at": null, "b": "村田が2軍監督やるってなった時もこんな感じやったなここw…"}, {"k": "cm", "no": 121, "at": null, "b": ">>117 小田はショートではないので関係ないやろw 小園獲得の話が出るのはやはり既存ショートが不甲斐ないからではないかな"}, {"k": "cm", "no": 122, "at": null, "b": ">>114 それは実力が負けてるんだからそりゃしゃーないやろ。そんなヌルい気持ちでプロ野球選手なんてしたらアカンやろ…"}, {"k": "cm", "no": 123, "at": null, "b": ">>12 離婚の経緯なんてそれこそ説明を求めていくようなものでもないだろ、完全なプライベートなんだし"}, {"k": "cm", "no": 124, "at": null, "b": ">>32 やめて良いよ 実際は山川獲得したソフトバンクですら ソフトバンクファンやめた奴なんてほとんどいなかったがな"}, {"k": "cm", "no": 125, "at": null, "b": "小園とったらバウアー帰ってきてくれなくなるぞ、いいんか"}, {"k": "cm", "no": 126, "at": null, "b": ">>122 実力も大した事ないです"}, {"k": "cm", "no": 127, "at": null, "b": ">>125 どっちもいらん"}, {"k": "cm", "no": 128, "at": null, "b": ">>126 今年春に日本代表に選ばれたショートなんですが"}, {"k": "cm", "no": 129, "at": null, "b": "FAの人数枠制度と補償制度は撤廃するべき 野手は憧れの松井の下で野球したいだろうし 投手は憧れの工藤の下で野球したいはず"}, {"k": "cm", "no": 130, "at": null, "b": ">>125 それよな あの時三浦とバウアーは南場オーナーと一緒に新井と小園に対して謝罪するべきだった"}, {"k": "cm", "no": 131, "at": null, "b": ">>128 それは実績ね 実力二遊間守れる能力はないですよ"}, {"k": "cm", "no": 132, "at": null, "b": "お笑い球団なら入団あり得るだらう 犯罪、事件性なければ獲得するんじゃないか 犯罪者とわかったら獲らないだろうけど"}, {"k": "cm", "no": 133, "at": null, "b": "宗はいるけど小園は…疑惑もあるけど、素行悪い奴はチームの悪影響にしかならんし。"}, {"k": "cm", "no": 134, "at": null, "b": "ショートもサードも両リーグワーストレベルで倉本と同格、赤い倉本と言われた奴やぞ 範囲激狭で送球難はキツすぎる"}, {"k": "cm", "no": 135, "at": null, "b": ">>116 サードでも使えない守備能力やぞ"}, {"k": "cm", "no": 137, "at": null, "b": ">>117 小田は牧の後釜じゃないの？"}, {"k": "cm", "no": 138, "at": null, "b": ">>111 ショートサードで守備能力は両リーグワーストクラスやぞ"}, {"k": "cm", "no": 139, "at": null, "b": "これで小園が巨人に行ってボカスカ打ったら、ここで正義論かざしてる連中速ダンマリになるくせにな。…"}, {"k": "cm", "no": 140, "at": null, "b": ">>139 だんまりにはならないだろ ゾンビゾンビって賭博再雇用の時みたいに騒がしくなる"}, {"k": "cm", "no": 141, "at": null, "b": "勘弁してください😨"}, {"k": "cm", "no": 142, "at": null, "b": "内野無理ならセンターコンバートさせようぜw"}, {"k": "cm", "no": 143, "at": null, "b": "村田の時もそうだったけど、同じ組織で活動している球団が問題あるから契約しませんて選手をこれ幸いと獲得するのはあまりにも節操ないだろ…"}, {"k": "cm", "no": 144, "at": null, "b": ">>121 あたま悪すぎ。ちゃんと最初から読めよ…"}, {"k": "cm", "no": 145, "at": null, "b": ">>124 戦力外という事分かってないのかね"}, {"k": "cm", "no": 146, "at": null, "b": "そもそも宗なんか必要か？ 小田でも残せそうな数字やないか"}, {"k": "cm", "no": 147, "at": null, "b": "素行どうこうではなく成績的に要らねえだろ どれもマイナスやんけ"}, {"k": "cm", "no": 148, "at": null, "b": "あくまでも調査でしょ？ 恩を仇で返しそうなんだよな プレースタイル少し雑だけど技術はある"}, {"k": "cm", "no": 149, "at": null, "b": "恥も外聞もないんだなって そんなに生え抜き育てる自信がないのか"}, {"k": "cm", "no": 150, "at": null, "b": ">>146 小田が来年.250 10本打てると思うか？"}, {"k": "cm", "no": 151, "at": null, "b": ">>134 日本代表小園 倉本はただの確変選手"}, {"k": "cm", "no": 152, "at": null, "b": "ゾンたば抜きにしてもいらん"}, {"k": "cm", "no": 153, "at": null, "b": ">>136 宗はサード専門にしては打てなさすぎるのよね。OPS.66しかないからな通算で。小園に負けてる"}, {"k": "cm", "no": 154, "at": null, "b": ">>140 そんなのすぐ収まるよ。一時の話や"}, {"k": "cm", "no": 155, "at": null, "b": ">>149 そんなの億超える金で山川や中田翔とったソフトバンクや巨人に言えよww"}, {"k": "cm", "no": 156, "at": null, "b": ">>139 ホームランバッターではないが 今季14本打ってる選手を全くホームラン打てない認定って常識を疑う"}, {"k": "cm", "no": 157, "at": null, "b": ">>145 ん？？ 問題はそこじゃないだろ"}, {"k": "cm", "no": 158, "at": null, "b": ">>58 宣言すらしてない牧原をどうやって獲得するの"}, {"k": "cm", "no": 159, "at": null, "b": "横浜は 素行は気にしないイメージあるな…"}, {"k": "cm", "no": 161, "at": null, "b": ">>138 宮下をポジってるんだろ？…"}, {"k": "cm", "no": 162, "at": null, "b": "育成ならまあ。中村ノリもやらかして中日で育成になってそっから復活したし。…"}, {"k": "cm", "no": 163, "at": null, "b": ">>131 日本代表レベルのショートをいらないと言える選手ないやろベイスターズ…"}, {"k": "cm", "no": 164, "at": null, "b": ">>144 実際小園を獲得したらまず間違いなくショート起用されると思うぞ"}, {"k": "cm", "no": 165, "at": null, "b": ">>156 確変の可能性が高いやろ 所詮通算OPS.66の選手 長打力なんてしれてるよ"}, {"k": "cm", "no": 166, "at": null, "b": ">>159 ゾンビやってないという確証さえあれば大事にはならんやろ。家宅捜索された選手ではないし"}, {"k": "cm", "no": 167, "at": null, "b": ">>163 だからそれは実績であって 現状日本代表レベルのショートでもないんですが…"}, {"k": "cm", "no": 168, "at": null, "b": ">>167 君が小園を代表レベルにないと認めたくないだけじゃんww…"}, {"k": "cm", "no": 169, "at": null, "b": "野球でイキっているなら しゃーないと思うけど プライベートでイキっている奴…"}, {"k": "cm", "no": 170, "at": null, "b": "浮気は犯罪じゃない"}, {"k": "cm", "no": 171, "at": null, "b": ".257 1 23 OPS.631 代表がどうとかはともかく実力は上記の通り"}, {"k": "cm", "no": 172, "at": null, "b": ">>97 ゾンビ確定ではなく疑惑止まりだしなぁ"}, {"k": "cm", "no": 174, "at": null, "b": ">>171 通算は？ そしてその成績より上の遊撃手宮下以外はいなくね？"}, {"k": "cm", "no": 175, "at": null, "b": ">>174 通算成績になんか意味がある？ 来年のホームラン王はおかわり君とか言っちゃう人？"}, {"k": "cm", "no": 176, "at": null, "b": "ＣＳで叩かれたばっかりなのに小園獲得で11球団のファンからまた叩かれるのかよ・・・…"}, {"k": "cm", "no": 177, "at": null, "b": "話が違って申し訳ないけど なんで、ベイから出た選手って、「ここはベイと違ってものすごく練習が厳しい」…"}, {"k": "cm", "no": 178, "at": null, "b": ">>74 二塁三塁遊撃どれも1年守らせるとUZR-10クラスだからまともに置けるの一塁になる…"}, {"k": "cm", "no": 179, "at": null, "b": "小園はフリースインガーっぽいのが気になる。そういう意味でも取るなら育成オンリー。…"}, {"k": "cm", "no": 180, "at": null, "b": ">>155 そいつらですら広島の戦力外を嬉々として漁るぐらいなら自前で用意する 浅ましいよ…"}, {"k": "cm", "no": 181, "at": null, "b": ">>153 サードは80試合スタメンと守備固めをやってくれる選手がちょうどいい…"}, {"k": "cm", "no": 182, "at": null, "b": "筒香宣言まじか…"}, {"k": "cm", "no": 183, "at": null, "b": ">>162 田村ってプロ1号があほちんから打ったサヨナラHRだったな確か…"}, {"k": "cm", "no": 184, "at": null, "b": ">>179 ゾンビ云々置いといて 小園のバットコントロールは本物だと思うよ…"}, {"k": "cm", "no": 185, "at": null, "b": ">>177 誰だって前の職場の不満や今の職場との違いを聞かれたら漏らすだろ"}, {"k": "cm", "no": 186, "at": null, "b": ">>7 まずは バーが一物を蹴っ飛ばしたこと 白シャツを着た謝罪動画を アップしなければならない 話はそれからだな"}, {"k": "cm", "no": 187, "at": null, "b": "バウアーや藤浪とったあの人なら、ありえる"}, {"k": "cm", "no": 188, "at": null, "b": ">>175 通算は意味あるやろw…"}, {"k": "cm", "no": 189, "at": null, "b": "筒香は巨人が出来レースだろうな…"}, {"k": "cm", "no": 190, "at": null, "b": ">>168 だから今の小園は代表レベルにないよって話をしてるの…"}, {"k": "cm", "no": 191, "at": null, "b": ">>180 論点ズレてね？…"}, {"k": "cm", "no": 192, "at": null, "b": "床田も宣言したのか…"}, {"k": "cm", "no": 193, "at": null, "b": ">>192 全部でてったらゾンビ20勝も出来なさそうw"}, {"k": "cm", "no": 195, "at": null, "b": ">>184 バットコントロールはあると思う。でもフリースインガーとそれは別問題だから…"}, {"k": "cm", "no": 196, "at": null, "b": "なソF DeNAは情報が出なさ過ぎて本当好き勝手書かれるからな…"}, {"k": "cm", "no": 197, "at": null, "b": "ベイとしては床田がほしいけど、まず高すぎて取れなくなるだろうから残念やな。…"}, {"k": "cm", "no": 198, "at": null, "b": "乞食に対する施しみたいな感じで広島に行かされるソフバンの東浜かわいそ過ぎるやろ…"}, {"k": "cm", "no": 199, "at": null, "b": ">>177 まあそんな人間性の奴らだから追い出されたわけで…"}, {"k": "cm", "no": 200, "at": null, "b": "まだ若いっていうけどショートを若いうちから守ってる選手は衰えも早いって散々見てきたわけだが…"}, {"k": "cm", "no": 201, "at": null, "b": ">>200 それは衰えよりも実力不足なだけやろ"}, {"k": "cm", "no": 202, "at": null, "b": "中畑と筒香　毎日連絡を取り合っていそう 何の話か知らんが"}, {"k": "cm", "no": 203, "at": null, "b": ">>1 俺が監督なら小園くんを精神面から鍛え直し…"}, {"k": "cm", "no": 204, "at": null, "b": ">>86 取った瞬間全国に巨大文春砲炸裂ーーーッッ！！！"}, {"k": "cm", "no": 205, "at": null, "b": ">>195 まあそりゃそう…"}, {"k": "cm", "no": 206, "at": null, "b": "小園の打撃を信じるのは分かるが守備マジでヤバかったろ…"}, {"k": "cm", "no": 207, "at": null, "b": "まだ羽月のがマシってくらいには勘弁 ブスッとして怠慢してるイメージ強すぎる"}, {"k": "cm", "no": 208, "at": null, "b": "小園は要らん。 それよか宗に来てもらいたい"}, {"k": "cm", "no": 209, "at": null, "b": ">>207 分かる 羽月のゴキブリ打法は嫌いだけどあれはあれで技術ないと出来んわな"}, {"k": "cm", "no": 210, "at": null, "b": ">>202 巨人に行きたいと筒香が云うんやったら…"}, {"k": "cm", "no": 211, "at": null, "b": ">>206 別に博打でも何でも無いやろ…"}, {"k": "cm", "no": 212, "at": null, "b": ">>208 宗の方がいらんやろ…"}, {"k": "cm", "no": 213, "at": null, "b": ">>190 それでも宮下以外のベイスターズのどのショートよりも小園は上なのよ"}, {"k": "cm", "no": 214, "at": null, "b": ">>178 UZRが根拠じゃ弱いよね…"}, {"k": "cm", "no": 215, "at": null, "b": ">>204 個人的には矢野がこれ以上暴露報道でないようなら小園はもうでないと思ってる"}, {"k": "cm", "no": 216, "at": null, "b": "戸柱はどうなるか…"}, {"k": "cm", "no": 217, "at": null, "b": "小園の守備はショートレベルではないけどサードなら宮崎筒香よりははるかにマシやろ…"}, {"k": "cm", "no": 218, "at": null, "b": "身体能力があるがゆえの怠慢なプレーが難点だよな"}, {"k": "cm", "no": 219, "at": null, "b": ">>212 いるだろ…"}, {"k": "cm", "no": 220, "at": null, "b": ">>211 いや絶対に白とは言い切れないから博打やろ"}, {"k": "cm", "no": 221, "at": null, "b": "天皇ご一家がファンの球団であるDeNA…"}, {"k": "cm", "no": 222, "at": null, "b": "如何にも、な人だろ…"}, {"k": "cm", "no": 223, "at": null, "b": ">>222 今のあっちのファンは…"}, {"k": "cm", "no": 224, "at": null, "b": "ゾンビや素行以前の問題でいらないわ 小園より羽月のほうがまだ戦力になると思うわ"}, {"k": "cm", "no": 225, "at": null, "b": ">>219 しかも宗はCランクやろ？…"}, {"k": "cm", "no": 226, "at": null, "b": "前にDeは小園欲しがるって投稿した時にんなわけねーだろとバカ扱いしてきたやつ、覚えてるからな"}, {"k": "cm", "no": 227, "at": null, "b": "Ⅽランクは安物買いの銭失い それなら戦力外の方がいいかもしれないね"}, {"k": "cm", "no": 229, "at": null, "b": "こういうタイプは嫌うやろ南場さんが"}, {"k": "cm", "no": 230, "at": null, "b": "小園をFAと同列に扱ってる奴いるけどそれだけは無理だわ…"}, {"k": "cm", "no": 231, "at": null, "b": "巨人も森下、床田を両取り書いてるのあったが…"}, {"k": "cm", "no": 232, "at": null, "b": "今のベイスは内野手が続々育ってるしこんなんに頼る必要ないよ…"}, {"k": "cm", "no": 233, "at": null, "b": "こう考えると、佐野って頭ええわな。…"}, {"k": "cm", "no": 234, "at": null, "b": ">>177 実際にベテラン勢がいつまでも自分の欠点に甘い人達だから…"}, {"k": "cm", "no": 235, "at": null, "b": ">>219 なら小園は対象なんですね"}, {"k": "cm", "no": 236, "at": null, "b": ">>219 あんな打力ないサード 打線の足引っ張るだけだよ"}, {"k": "cm", "no": 237, "at": null, "b": ">>232 同感やな…"}, {"k": "cm", "no": 238, "at": null, "b": ">>230 格安では契約出きるぞ"}, {"k": "cm", "no": 239, "at": null, "b": "広島のFA戦士３人を交渉だけでもしてみたほうがいい 人的補償を怖がっては何も進まない"}, {"k": "cm", "no": 240, "at": null, "b": ">>238 そのはずだけど、この球団藤浪にまあまあ積んだし…"}, {"k": "cm", "no": 241, "at": null, "b": "とうとう来ましたね 牧、佐野、森敬斗、小園、宗の内野陣になれば12球団最強です…"}, {"k": "cm", "no": 242, "at": null, "b": ">>239 床田と坂倉はタンバリン案件だから時間の無駄…"}, {"k": "cm", "no": 243, "at": null, "b": ">>242 そんな情報あるの？ 因みにどこの球団？"}, {"k": "cm", "no": 244, "at": null, "b": ">>241 どの12球団かは知らんけどNPB1軍ならホークスの内野陣のが強いな…"}]}, {"id": "t4b7e1d0a99", "team": "DeNA", "lg": "se", "rel": "", "cat": "その他", "st": "報道ベース", "h": "マルセリーノがドミニカ（レオネス）に合流、石田裕太郎の「ポ塾」開講", "tag": "", "news": "ウインターリーグ・侍合宿関連の話題（見出しのみ）", "links": [{"n": "ベイスターズNEWS", "u": "https://baynews.blog.jp/archives/35442274.html"}], "src": null, "note": "", "isNew": false, "posts": []}, {"id": "t7d4f9b3e65", "team": "広島", "lg": "se", "rel": "", "cat": "FA移籍", "st": "ネタ", "h": "3人FA流出危機、ファンが「立て直し案」を募集", "tag": "", "news": "森下・坂倉・床田の3人がFA権行使。まとめブログが立て直し案を募集（11/07未明）", "links": [{"n": "デイリースポーツ", "u": "https://www.daily.co.jp/baseball/carp/2026/11/06/0021006038.shtml"}], "src": {"n": "かーぷぶーん", "u": "https://carp-matome.blog.jp/archives/1084584998.html"}, "note": "ブログ読者コメント全45件を掲載（転載レスは本文扱いのため対象外）", "isNew": true, "posts": [{"k": "cm", "no": 1, "at": "2026/11/07 00:54", "b": "本コメに画期的な案が一つもねえじゃねえかｗ"}, {"k": "cm", "no": 2, "at": "2026/11/07 01:00", "b": "人的で当たりを引くとか既存戦力が覚醒するみたいなのは案じゃなくて願望 FA選手を取る、設備に投資するなどが案という。なお金がないので不可能"}, {"k": "cm", "no": 3, "at": "2026/11/07 01:03", "b": "立て直すのは簡単、身売りすればいい。買いたいところはたくさんある"}, {"k": "cm", "no": 4, "at": "2026/11/07 01:03", "b": "ぶっちゃけ指名権補償すら契約金ケチって無駄にしても驚かんと思う"}, {"k": "cm", "no": 5, "at": "2026/11/07 01:07", "b": "「キンセン選手を3人獲得しました！」←これやらかしてカープファンが激怒する世界線は回避してほしい"}, {"k": "cm", "no": 6, "at": "2026/11/07 01:07", "b": "宗あたり取りにいってみるとか（取れるとは言ってない）"}, {"k": "cm", "no": 7, "at": "2026/11/07 06:01", "b": "顎が捻くれそう"}, {"k": "cm", "no": 8, "at": "2026/11/07 01:08", "b": "2018年の西武ライオンズは浅村炭谷抜けてもおかわりさんが残留で連覇したし、誰か一人にでも残ってもらおう 2011年のソフトバンクホークスはFAで3人抜けて3位に落ちた、全員抜けられたらほんとどうにもならない"}, {"k": "cm", "no": 9, "at": "2026/11/07 01:08", "b": "ぼちぼち球団解体も見えてきてるんちゃうか…"}, {"k": "cm", "no": 10, "at": "2026/11/07 01:08", "b": "人的補償で山川とるのはマジであり ソフトバンクでも戦力が余って二軍でホームラン王とるぐらい出場機会に恵まれてない"}, {"k": "cm", "no": 11, "at": "2026/11/07 01:19", "b": "ソフトバンクの二軍になる 近いしいけるやろ"}, {"k": "cm", "no": 12, "at": "2026/11/07 01:32", "b": "森下が巨人に言った場合今の立ち位置なら門脇はプロテクトから漏れてそうだからそれ取れたら少なくとも矢野の穴は埋められそう"}, {"k": "cm", "no": 13, "at": "2026/11/07 01:36", "b": "球団売却 松田一族という呪いの装備外さないと無理だろ"}, {"k": "cm", "no": 14, "at": "2026/11/07 01:36", "b": "身売りしろや"}, {"k": "cm", "no": 15, "at": "2026/11/07 01:37", "b": "今すぐ新井辞めてポジコロせずにまともな采配出来る人間が監督やってほしいわ"}, {"k": "cm", "no": 16, "at": "2026/11/07 01:50", "b": "チャッピーに判断まかせるのが一番いい 脳筋や感覚で判断する人間監督はおかざりでいい"}, {"k": "cm", "no": 17, "at": "2026/11/07 02:06", "b": "チャッピーwww"}, {"k": "cm", "no": 18, "at": "2026/11/07 02:09", "b": "チャットGPT監督お願いいたします"}, {"k": "cm", "no": 19, "at": "2026/11/07 02:52", "b": "2027年　勝利の為のオーダー(Gemini) 矢野 小園 ファビアン 坂倉 末包 田村 モンテロ 菊池 このオーダーで勝つための3つのポイント 「小園×坂倉×末包」の得点ラインの固定 カープが勝つシーズンは、ポイントゲッターの軸がぶれません。…"}, {"k": "cm", "no": 20, "at": "2026/11/07 01:39", "b": "何度も言ってるが、ネットの連中なんて全て無視でよろしい 菊池　堂林　會澤 ここらへんの実績のある選手をスタメンに並べ、客を呼べ"}, {"k": "cm", "no": 21, "at": "2026/11/07 03:03", "b": "その「ネットの連中」が球場に来てる客でもあるんだけどな ネットはただの広場、そこにいる人達は 現実に存在してるカープファンが集まってるだけなんだよ"}, {"k": "cm", "no": 22, "at": "2026/11/07 04:53", "b": "こことか、なんj？とかにコメントしてるやつはファンはファンでもネットメインのファンでファン全体から見たら少数派だと思う YouTubeのコメント欄とかにコメントする層は民度も高めで球場にも足を運ぶファンが多いと思う。"}, {"k": "cm", "no": 23, "at": "2026/11/07 01:39", "b": "そんな特効薬なんてない 来年以降も苦しみは続いていく"}, {"k": "cm", "no": 24, "at": "2026/11/07 01:48", "b": "５〜６年ドラフト当てまくるしか方法は無いよ"}, {"k": "cm", "no": 25, "at": "2026/11/07 01:50", "b": "数年は捨てて再建を狙う 直近数年は大金投じても難しいだろうし、数年後に芽が出る保証無いけど泥沼脱出に賭けた方がマシかと FAは引き留めず指名権貰って、菊池ら主力もトレードして若手獲る、試合は若手と売れ残りで成立させる、…"}, {"k": "cm", "no": 26, "at": "2026/11/07 01:55", "b": "実績あるアマのコーチやトレーナーを引き抜いてファームから育てよう 元有名選手コーチでの育成は知識や方法に限界があると思う"}, {"k": "cm", "no": 27, "at": "2026/11/07 02:03", "b": "奨励の使い方間違ってるよ 画期的な案を募集の方が自然"}, {"k": "cm", "no": 28, "at": "2026/11/07 02:04", "b": "個人情報流出させない一周回って先進球団は我らがカープぞ！ 古臭い体制を貫くことこそ正当球団！！"}, {"k": "cm", "no": 29, "at": "2026/11/07 02:11", "b": "大谷翔平を獲得する"}, {"k": "cm", "no": 30, "at": "2026/11/07 02:11", "b": "とりあえず野球は９人いたら試合できるんだからダイジョブダイジョブ！ 坂倉とか森下とか床田は確かに野球上手い選手だけど、他の選手もプロだからダイジョブ！ ドラフトで新しい人たちも加わったことだし、ドミニカンも何人かいる…"}, {"k": "cm", "no": 31, "at": "2026/11/07 02:20", "b": "テレビ局と組んで大型オーディション番組(YouTubeでも視聴可)やってあらゆる分野のスペシャリストを募る！ 野球経験者はもちろん他競技、データ解析とかあらゆるスタッフも。 ついでに球団公認アイドルグループメンバーも募集して結成！"}, {"k": "cm", "no": 32, "at": "2026/11/07 02:37", "b": "身売りすればっていっても球団手放す気全然ねーからな 儲かる間、自分達の食い扶持になる間は期待出来ないんちゃうか"}, {"k": "cm", "no": 33, "at": "2026/11/07 02:38", "b": "オーナー企業変更 コーチ陣一新（打撃陣）"}, {"k": "cm", "no": 34, "at": "2026/11/07 03:24", "b": "いっそ球団解散でええやろ オイシックスも入れ替われ"}, {"k": "cm", "no": 35, "at": "2026/11/07 03:28", "b": "フロントや現コーチ陣の一掃と言いたいが現実的ではないので真面目に案を考えてみた (本人の希望がなきゃ成立しないが)丸復帰してもらう チーム勝率も純粋に上がると思うし、巨人より本人の出場数も上がるだろう。…"}, {"k": "cm", "no": 36, "at": "2026/11/07 03:30", "b": "もはや一縷の望みは森下のホークス移籍。"}, {"k": "cm", "no": 37, "at": "2026/11/07 03:34", "b": "ドラマだとワケありの謎のコンサルやエージェントが突如やってきて苦難の末なんと1年で全て解決するよ でもこの球団だけはラスボスの元が最後まで折れず口出して改革を邪魔してバットエンドになるんだけど"}, {"k": "cm", "no": 38, "at": "2026/11/07 05:03", "b": "松田家を排除しないと無理"}, {"k": "cm", "no": 39, "at": "2026/11/07 05:06", "b": "「かーぷぶーん」の皆さん、いつも熱い応援お疲れ様です！ 今オフは確かに激動の冬ですが、前評判が厳しい時ほど泥臭く下馬評を引っくり返して、私たちを熱狂させてくれるのがカープの真骨頂ですよね！…"}, {"k": "cm", "no": 40, "at": "2026/11/07 06:19", "b": "山里.270 25 80 西野.270 15 65 光弘.280 10 55 名原.280 10 50 床田森下残留 野原吉川東浜がローテで30勝弱勝ってくれたら優勝するかな"}, {"k": "cm", "no": 41, "at": "2026/11/07 05:08", "b": "松山竜平をオイシックスから連れ戻してこい！ 四番打たせろ！"}, {"k": "cm", "no": 42, "at": "2026/11/07 06:07", "b": "地元密着がいいのであれば広島に本社があって時価総額が大きい企業に身売りかな まぁないけど中国電力とかエフピコやイズミとか？"}, {"k": "cm", "no": 43, "at": "2026/11/07 06:28", "b": "fa選手って2人までしかとれないルールだけど、残留の場合もそうなの？1人は移籍確定？"}, {"k": "cm", "no": 44, "at": "2026/11/07 06:35", "b": "まあ身売りが妥当じゃないかな 都市規模は仙台の楽天が成り立ってるんだから、何の問題もないし 挨拶が採用基準のオーナーで無ければ、少なくともマエケンはいたはずなんで、それだけでもだいぶマシ"}, {"k": "cm", "no": 45, "at": "2026/11/07 06:42", "b": "ゾンビの一件でさんざ世間を騒がせた報いだろどう考えても。全員流出もそのペナルティとして甘んじて受け入れるべき"}]}, {"id": "ta07c2e6b98", "team": "広島", "lg": "se", "rel": "", "cat": "その他", "st": "ネタ", "h": "OB「菊池涼介が来年2000安打達成するようだとチーム状態は良くない」", "tag": "", "news": "高橋慶彦氏がYouTubeで、若手が菊池を追い抜くことがチームの成長につながると解説", "links": [], "src": {"n": "フィルダースチョイス", "u": "https://fielderschoice.blog.jp/archives/10584079.html"}, "note": "（実在人物への未確認の告発を含むレス2件を省略）", "isNew": true, "posts": [{"k": "res", "no": 2, "at": null, "b": "菊池涼介（36）今期成績 / 133試合 .234 7 39 ops.639　109安打"}, {"k": "res", "no": 17, "at": null, "b": "普通にWAR終わってる小園より役に立ってるな"}, {"k": "res", "no": 4, "at": null, "b": "小園矢野が抜けた時点で菊池が試合出るしかないやん"}, {"k": "res", "no": 5, "at": null, "b": "すでに良くない定期"}, {"k": "res", "no": 8, "at": null, "b": "こっち切ればよかったのに"}, {"k": "res", "no": 10, "at": null, "b": "それはそう / 前田が我が物顔でベンチに座ってるうちはダメとか言われてた頃に戻ってきたな"}, {"k": "res", "no": 11, "at": null, "b": "これより打てる奴すらいない"}, {"k": "res", "no": 13, "at": null, "b": "チーム弱くてよかったな / ソフトバンクならとっくにクビだよ"}, {"k": "res", "no": 15, "at": null, "b": ">>13 / そう考えると東浜巨可哀想だし秋山翔吾はなんで苦言を呈さないのか？もっと言えば辛いさん優しすぎ"}, {"k": "res", "no": 14, "at": null, "b": "守備力は全盛期の半減って感じ、取れるとこはうまいけど"}, {"k": "res", "no": 16, "at": null, "b": "ノムケンが使える目処が立った瞬間トレードに出された人の言葉だから説得力がある"}, {"k": "res", "no": 18, "at": null, "b": "この人守備盗塁下手だったけど人気だけはあったな"}]}, {"id": "t8e5a0c4f76", "team": "広島", "lg": "se", "rel": "オリックス", "cat": "FA移籍", "st": "公式", "h": "床田寛樹も国内FA権を行使、3日連続で3人目", "tag": "", "news": "「迷っているので色々話を聞いてから決めたい」。球団は宣言残留を容認", "links": [{"n": "Full-Count", "u": "https://full-count.jp/2026/11/06/post2041082/"}], "src": {"n": "なんJ（まとめては）いかんのか？", "u": "https://livejupiter2.blog.jp/archives/11127963.html"}, "note": "転載レス32件・読者コメント50件を掲載。（実在人物への未確認の告発を含むレス5件を省略）", "isNew": false, "posts": [{"k": "res", "no": 4, "at": null, "b": "まだ迷ってるフリしてて草"}, {"k": "res", "no": 18, "at": null, "b": "なんで3日に分けたの…？🥺"}, {"k": "res", "no": 5, "at": null, "b": "毎日宣言"}, {"k": "res", "no": 14, "at": null, "b": "11/4：森下FA正式表明 / 11/5：坂倉FA正式表明 / 11/6：床田FA正式表明"}, {"k": "res", "no": 34, "at": null, "b": "ぐう畜"}, {"k": "res", "no": 63, "at": null, "b": "おれ明日するわ、じゃあ明後日な"}, {"k": "res", "no": 74, "at": null, "b": "ぜってえ口裏合わせているやろ"}, {"k": "res", "no": 257, "at": null, "b": "じゃんけんで順番決めたんやろなぁ"}, {"k": "res", "no": 33, "at": null, "b": "（広島以外で）迷っている / いろいろ話を聞いてから決めたい / （広島お断りする方法を）考える時間が作れる / 家族と話して（年俸的に）後悔のない決断がしたい"}, {"k": "res", "no": 37, "at": null, "b": "ようこそオリックスへ"}, {"k": "res", "no": 58, "at": null, "b": "もう決まってんだからオリ入りも今日発表しろ"}, {"k": "res", "no": 62, "at": null, "b": "床田はオリックスで確定という風潮"}, {"k": "res", "no": 68, "at": null, "b": "ほんまに迷っとるか？"}, {"k": "res", "no": 47, "at": null, "b": "迷ったフリ草"}, {"k": "res", "no": 60, "at": null, "b": "迷う理由ゼロすぎる"}, {"k": "res", "no": 83, "at": null, "b": "出ないわけないよね"}, {"k": "res", "no": 141, "at": null, "b": "オリ行く気満々やのに迷ってるアピールやめーや"}, {"k": "res", "no": 191, "at": null, "b": "俺たちは家族じゃなかったのか？涙ツー"}, {"k": "res", "no": 195, "at": null, "b": "シーズン途中に決断してる定期"}, {"k": "res", "no": 204, "at": null, "b": "迷っている（迷ってない）"}, {"k": "res", "no": 289, "at": null, "b": "迷ったけどオリックスに行きます"}, {"k": "res", "no": 319, "at": null, "b": "オリックス人的ひどすぎておいしくないんよなあ…"}, {"k": "res", "no": 200, "at": null, "b": "1日ずつFAすなよw"}, {"k": "res", "no": 234, "at": null, "b": ">>200 / スポーツ新聞への配慮や"}, {"k": "res", "no": 248, "at": null, "b": "時期ずらすのって礼儀なんやろ / 他にもやってた気がする"}, {"k": "res", "no": 354, "at": null, "b": "妙な演技入れる必要なかったやろ"}, {"k": "res", "no": 296, "at": null, "b": "この感じで残留したの近年やと大山ぐらいやろ"}, {"k": "res", "no": 364, "at": null, "b": "これ何だったの（画像あり）"}, {"k": "res", "no": 372, "at": null, "b": ">>364 / みんな（自分含む）"}, {"k": "res", "no": 405, "at": null, "b": ">>364 / 連鎖退職ってこうして起きるんやな"}, {"k": "res", "no": 401, "at": null, "b": "カープ崩壊"}, {"k": "res", "no": 91, "at": null, "b": "広島ファンもは東浜獲得で溜飲は下がったやろ"}, {"k": "cm", "no": 51, "at": null, "b": "東浜なんかでおさまるわけないだろ。バカかな？"}, {"k": "cm", "no": 48, "at": null, "b": "栗林は来年だっけ / FAしたら中日行きだろうししばらくはヤクルト広島の2弱時代かな"}, {"k": "cm", "no": 44, "at": null, "b": "先輩のFAは引き留めたのに～とか抜かすのおるがあれは「その時の自分にとって一番居心地が良くなるための行動をする」ってだけだから…"}, {"k": "cm", "no": 43, "at": null, "b": "3人揃って同じ球団に行く可能性は？"}, {"k": "cm", "no": 45, "at": null, "b": ">>43 / 2名までとか制限ルールなかったっけ"}, {"k": "cm", "no": 42, "at": null, "b": "割とオリックスも野手の態度もおかしくなってるし岸田が投手ぶっ壊すしで先行き暗雲どころじゃないんだよな。割と迷ってるのはマジかもしれない"}, {"k": "cm", "no": 46, "at": null, "b": ">>42 / オリックスは中川と宗がFA行使の中 / コーチも何人か抜けて他チームに移籍してるんやっけ / トミージョンの影に隠れて組織ボロボロやない？"}, {"k": "cm", "no": 41, "at": null, "b": "ある程度シーズン中に決めてるだろうし迷ってるフリなのバレバレだよな"}, {"k": "cm", "no": 40, "at": null, "b": "ただでさえ他より年俸払えないチームがあんなやらかしまでやったらそらそうなるわな"}, {"k": "cm", "no": 34, "at": null, "b": "ズラしても本人達には良い事ないよね？ / 記事内で言われてる通り報道機関等への配慮なのか"}, {"k": "cm", "no": 39, "at": null, "b": ">>34 / 揃ってやってしまったら、みんな出ていく雰囲気になるでしょ"}, {"k": "cm", "no": 33, "at": null, "b": "「迷っている」 / 本当に？🙄"}, {"k": "cm", "no": 36, "at": null, "b": ">>33 / 新井も辛がってたから…"}, {"k": "cm", "no": 32, "at": null, "b": "漢新井、この流れに乗って辞任出来ないか挑戦"}, {"k": "cm", "no": 29, "at": null, "b": "主力3人抜けてそのうち一人が行きそうな球団から戦力外目前のベテランもらったからってさすがに溜飲は下がらんだろ"}, {"k": "cm", "no": 28, "at": null, "b": "あしたはだれ？"}, {"k": "cm", "no": 27, "at": null, "b": "西川と京セラで楽しそうに野球観戦してたの好き"}, {"k": "cm", "no": 26, "at": null, "b": "東浜のおかげで今日のスポーツ紙一面カープだぞ / 端っこに超主力3人流出危機ってあって草だった"}, {"k": "cm", "no": 24, "at": null, "b": "こいつら同じ日に宣言しないように口裏合わせしてただろ"}, {"k": "cm", "no": 23, "at": null, "b": "3日連続FAとかもうねえだろうな / さっさと自動FAにしたらええのに"}, {"k": "cm", "no": 22, "at": null, "b": "なんでFA前年に複数年結ばなかったんや？ / 3人同時FAは流石にやばすぎやろ"}, {"k": "cm", "no": 20, "at": null, "b": "広島ファンは東浜獲得でむしろはらわたが煮えくり返っとるやろ"}, {"k": "cm", "no": 19, "at": null, "b": "(どうやって檻から好条件を引き出すか)迷っている"}, {"k": "cm", "no": 35, "at": null, "b": ">>19 / なんでや！矢野前川は不起訴なったやろ！"}, {"k": "cm", "no": 18, "at": null, "b": "・所属会社が不祥事を起こした ・所属会社は業績不振 ・所属会社は給料が安い ・自分にはヘッドハンティングが来ている ・優秀な同僚にもヘッドハンティングが来ている ・ヘッドハンティング先でも職場の雰囲気は変わらない…"}, {"k": "cm", "no": 50, "at": null, "b": ">>18 / 上司が辞めたくても辞めれないも追加で"}, {"k": "cm", "no": 16, "at": null, "b": "床田　オリ / 坂倉　ロッテ / 森下　巨人 / 高橋　SB / 宗　横浜 / 中川　阪神 / 小島 / 阪神"}, {"k": "cm", "no": 14, "at": null, "b": "この苦しみは続きますどこまでも"}, {"k": "cm", "no": 21, "at": null, "b": ">>21 / ちょっと…？"}, {"k": "cm", "no": 11, "at": null, "b": "あの流れで大山が残留したのはノイジーのおかげという事実"}, {"k": "cm", "no": 10, "at": null, "b": "檻と既に話はついてるけどFAする順番に迷ってる"}, {"k": "cm", "no": 9, "at": null, "b": "先発ローテ2人とレギュラー2人と優秀な控え2人を1年で失う伝説のシーズン"}, {"k": "cm", "no": 37, "at": null, "b": ">>9 / この苦しみは続きます！って予告済みだからセーフ"}, {"k": "cm", "no": 8, "at": null, "b": "まぁ色々あったからこれを機に大解体や…"}, {"k": "cm", "no": 7, "at": null, "b": "別に迷ってるのは嘘じゃないだろ / チーム愛はあくまでも決める要素のうちの1つでしかないというだけだし…"}, {"k": "cm", "no": 6, "at": null, "b": "大瀬良のFAを止めたくせに自分は出ていく裏切り者"}, {"k": "cm", "no": 25, "at": null, "b": ">>6 / 同じように引き止めればいいじゃん / 最後に決めるのは自分だろ"}, {"k": "cm", "no": 5, "at": null, "b": "カープは家族なのに…"}, {"k": "cm", "no": 15, "at": null, "b": ">>5 / オリにも家族がいて待ってるからね"}, {"k": "cm", "no": 4, "at": null, "b": "3戦連続サヨナラを思い出した"}, {"k": "cm", "no": 12, "at": null, "b": ">>4 / 神ってるの頃やな"}, {"k": "cm", "no": 3, "at": null, "b": "宣言と同時に檻行きを発表できそう"}, {"k": "cm", "no": 2, "at": null, "b": "広場はゼロからのスタートやな"}, {"k": "cm", "no": 17, "at": null, "b": ">>2 / 大幅マイナス定期"}, {"k": "cm", "no": 31, "at": null, "b": ">>2 / Reゼロから始まる広島生活"}, {"k": "cm", "no": 1, "at": null, "b": "？「迷ってる」 / の割に迷いない宣言やんけ！！ / この、、、マヨラーどもが💢😭💦"}]}, {"id": "t9f6b1d5a87", "team": "広島", "lg": "se", "rel": "ソフトバンク", "cat": "トレード", "st": "公式", "h": "SB東浜巨を無償トレードで獲得", "tag": "", "news": "東浜「少しでもカープの力になれるよう、精いっぱい頑張りたい」。新井監督も加入を歓迎", "links": [{"n": "Full-Count", "u": "https://full-count.jp/2026/11/06/post2041326/"}], "src": {"n": "かーぷぶーん", "u": "https://carp-matome.blog.jp/archives/1084584890.html"}, "note": "転載レス50件、読者コメントは取得できた69件（全98件のうちページに表示されたNo.69まで）を掲載。取得ツールが長文を途中で切ったものは「…」付き", "isNew": false, "posts": [{"k": "res", "no": 826, "at": null, "b": "【トレードについて】 福岡ソフトバンクホークスは、 #東浜巨 投手の無償トレードによる移籍について、広島東洋カープと合意しましたのでお知らせいたします。…"}, {"k": "res", "no": 842, "at": null, "b": "ソフトバンク東浜の最後の挨拶めっちゃええやん カープにもリスペクトあるし応援したくなる内容だった"}, {"k": "res", "no": 843, "at": null, "b": "まぁ特にやらかしも悪い評判もないし人格者なのは間違い無いと思う"}, {"k": "res", "no": 847, "at": null, "b": "今のカープに必要な人材ですなあ / ソフバンが自由契約にせず無償トレードしたのはこの辺りがあるんかな"}, {"k": "res", "no": 844, "at": null, "b": "後輩から慕われてるという話はファンからも出とるね"}, {"k": "res", "no": 845, "at": null, "b": "亜細亜大の先輩として齊藤覚醒させてくれ"}, {"k": "res", "no": 846, "at": null, "b": "安仁屋算「東浜11勝」とかしそう"}, {"k": "res", "no": 850, "at": null, "b": "山里に左ケツを叩かれ、東浜に右ケツを叩いてもらおう"}, {"k": "res", "no": 857, "at": null, "b": "ソフトバンクさんありがとう！ / ところでもう1人くらい枠空けに協力してもええんやけど…どうです？"}, {"k": "res", "no": 880, "at": null, "b": "東浜の背番号は空いてる12でほぼ決まりかな"}, {"k": "res", "no": 1, "at": null, "b": "背番号どうなるんやろ。23か？"}, {"k": "res", "no": 2, "at": null, "b": "11球団からの樽募金か？"}, {"k": "res", "no": 5, "at": null, "b": "投手の経験豊富なベテラン格、大瀬良中崎以外そんないなかったからその枠がもう1人いてくれるのは助かるな。 / 去年のオフもそう言った感じなんならメジャー経験してておまけにチームに縁ありまくりな投手いたけどなんかスルーしてたな()"}, {"k": "res", "no": 6, "at": null, "b": "カープが補強した！"}, {"k": "res", "no": 286, "at": null, "b": "実質FAだよな!!!"}, {"k": "res", "no": 7, "at": null, "b": "東浜取ったことよりアサ芸が当てたことに驚いてる"}, {"k": "res", "no": 27, "at": null, "b": "アサ芸さんもネタ記事書いてるうちに記者が育ってスクープを報道できる立派な野球メディアに育ってきてる"}, {"k": "res", "no": 52, "at": null, "b": "アサ芸はカープが育てた"}, {"k": "res", "no": 107, "at": null, "b": "もう今後アサ芸の記事を「あーはいはい（笑）」みたいな感じでスルーすることできないな（なお実話は評価不変"}, {"k": "res", "no": 115, "at": null, "b": "アサ芸の記者が一番びっくりしてるやろ"}, {"k": "res", "no": 9, "at": null, "b": "東浜+人的(SB側である程度の候補絞る)と森下の実質2対1トレードになる形に双方で話進めてたという可能性…ないか"}, {"k": "res", "no": 12, "at": null, "b": "普通にありえそう。。 / カープのFA3人のうち1人はソフトバンクに行く可能性が高まってしまった"}, {"k": "res", "no": 19, "at": null, "b": "そもそも鷹は支配下パンパンだし枠空け目的もあるかもしれない / 森下取れたら人的こそ取られるけどラッキー、取れなくても東浜放出で1枠空くからどう転んでもあっちには得という"}, {"k": "res", "no": 180, "at": null, "b": "こっから人的取ってソフトバンクと敵対するよりも、ソフトバンクと仲良くして戦力供給してもらう方が長い目で見てメリットでかすぎるような。"}, {"k": "res", "no": 16, "at": null, "b": "亜大枠は常に埋める方針のカープさん"}, {"k": "res", "no": 18, "at": null, "b": "いいねーこういう出場機会を求めての移籍、そのままソフトバンクで静かに終わって盛大な引退試合も出来たろうにまだまだ炎が残ってたんだろうなぁ / 心を燃やせ！"}, {"k": "res", "no": 99, "at": null, "b": "ホークスは晩年に移籍した選手でも 引退後にホークス生え抜きみたいな扱いされてるのが大きいと思う"}, {"k": "res", "no": 20, "at": null, "b": "枠を空けたい元所属球団であるホークスとしては実質的な戦力外だけど、ドラ1の功労者の格を落とさないために無償トレードって形か。…"}, {"k": "res", "no": 76, "at": null, "b": "パリーグ球団に拾われたら嫌だから、無償トレードでセリーグに流す / 中田賢一とか山田大樹でやったのと同じことだよ"}, {"k": "res", "no": 90, "at": null, "b": "別リーグに送るという点では甲斐選手と同じですな"}, {"k": "res", "no": 21, "at": null, "b": "東浜のWikipedia見に行ったらもう赤色になってた / 亜大ツーシームの開祖なんやろ / カープの右投手にも伝授してくれや"}, {"k": "res", "no": 29, "at": null, "b": "東浜「2人に教えたぞ」"}, {"k": "res", "no": 26, "at": null, "b": "人的はギータが理想"}, {"k": "res", "no": 33, "at": null, "b": "ギータは今年活躍したから無理でしょう / 今宮は可能性あると思うんだけどなぁ"}, {"k": "res", "no": 35, "at": null, "b": "東浜って年俸いくらだ"}, {"k": "res", "no": 36, "at": null, "b": "2026年: 1億1000万円 / 契約更改前にカープに権利を譲った / これからカープと契約更改をする"}, {"k": "res", "no": 38, "at": null, "b": "東浜は名前くらいしか知らんかったが実積凄いな。 / ソフトバンクは選手ドンドン入れてバシバシ首にするからなんだかなーとは思う。"}, {"k": "res", "no": 83, "at": null, "b": "常に強いチームでいるために良い選手を確保する。そのために旬が過ぎた選手はあっさり手離す。…"}, {"k": "res", "no": 88, "at": null, "b": "東浜はクイックが上手いらしいから手本になると良いね"}, {"k": "res", "no": 94, "at": null, "b": "バイオリズム的に今年から３年くらいは活躍しそう"}, {"k": "res", "no": 98, "at": null, "b": "コレで枠65人。（床田森下坂倉込み） / 新外国人投手（願望）トライアウトから1人。 / まだ余裕はあるわね"}, {"k": "res", "no": 149, "at": null, "b": "広島・飯田哲矢チーフアナリストは亜大の同期にあたる。なるほど"}, {"k": "res", "no": 150, "at": null, "b": "人的でギータに青信号かもな"}, {"k": "res", "no": 219, "at": null, "b": "藤浪、田口、青柳あたりを取らなきゃ"}, {"k": "res", "no": 226, "at": null, "b": "特に田口は先発中継ぎ抑えでの起用経験が豊富だから臨機応変の起用が出来そうだな"}, {"k": "res", "no": 231, "at": null, "b": "10勝カルテット爆誕や！"}, {"k": "res", "no": 278, "at": null, "b": "引退までやらせて、投手コーチしてもらおう"}, {"k": "res", "no": 285, "at": null, "b": "東浜　180登板　1043.2回　防御率3.30　76勝46敗(+30)…ホークスの強さがよくわかる数字だな"}, {"k": "res", "no": 198, "at": null, "b": "ソフバンの選手が来ればカープとの違いについて具体的に語ってくれる部分もあるだろうし今後に向けていいんじゃない"}, {"k": "res", "no": 3, "at": null, "b": "(FAで投手2人抜けるからという事情もありそうだが)外部からベテラン獲得して引退までいてもらい…悪くない話ではあるな"}, {"k": "cm", "no": 1, "at": null, "b": "今季1軍登板なし、来年37歳、年俸1.1億 うーん"}, {"k": "cm", "no": 37, "at": null, "b": "贅沢言うな"}, {"k": "cm", "no": 61, "at": null, "b": "更改前だから年俸はこっちが決めるやで"}, {"k": "cm", "no": 88, "at": null, "b": "ただで貰っておいて速攻減俸とかしたら誰も来てくれんくなるぞ"}, {"k": "cm", "no": 74, "at": null, "b": "それでもローテに入れそうな我が軍の層"}, {"k": "cm", "no": 2, "at": null, "b": "👴「これで最大限のバックアップは果たしたぞい」"}, {"k": "cm", "no": 3, "at": null, "b": "スタンドを真っ赤に埋め尽くす…🤔"}, {"k": "cm", "no": 6, "at": null, "b": "ベンチの色が赤なんで 観客ゼロでもかなりの割合で真っ赤になるのだ"}, {"k": "cm", "no": 42, "at": null, "b": "交流戦はたくさん入るし 三連覇の時対戦してたから そのイメージあってもおかしくない"}, {"k": "cm", "no": 4, "at": null, "b": "福岡　今なら嶺井選手もつけます！ 広島　代打ウィーランド思い出すので結構です"}, {"k": "cm", "no": 58, "at": null, "b": "ウィーランドに２本もホームラン打たれたやつが居たな(笑)"}, {"k": "cm", "no": 5, "at": null, "b": "ここ3年ぱっとしないけど最後に一花咲かそうと頑張ってくれるかもしれんからな なお打線"}, {"k": "cm", "no": 7, "at": null, "b": "純粋に先発での登板機会求めて前向きに移籍して来てくれるから応援したいね…"}, {"k": "cm", "no": 44, "at": null, "b": "大瀬良先発は諦めた方がいいと思うけどな 中継だと球速出せるけど先発だとボコられそう"}, {"k": "cm", "no": 8, "at": null, "b": "年俸の心配はしてたが、今期1.1億でこれからカープと交渉して減俸だろうからそこまで心配しなくていいか…"}, {"k": "cm", "no": 13, "at": null, "b": "今年の大瀬良の年俸の方が不良債権になってたからな…"}, {"k": "cm", "no": 19, "at": null, "b": "年俸高い人が4人いなくなるから…"}, {"k": "cm", "no": 93, "at": null, "b": "ぶっちゃけ単年1.1億なら最悪今年現状維持でもほぼノーダメージやろ"}, {"k": "cm", "no": 9, "at": null, "b": "後輩やファンからも好感度高いから 戦力外じゃなくて無償トレードなんやな"}, {"k": "cm", "no": 10, "at": null, "b": "素直に嬉しいよ 東浜さん、きてくれてありがとう ホークスさん、チーム事情のやばいカープに出してくれてありがとう"}, {"k": "cm", "no": 11, "at": null, "b": "5回メドかつ谷間の先発でいいなら全然いける 9連戦とかで投げるのにはうってつけだけどそれ以上を望めるかはうーん？"}, {"k": "cm", "no": 12, "at": null, "b": "最大限の補巨や"}, {"k": "cm", "no": 14, "at": null, "b": "まとめ先、ナチュラルに失礼な書き込み多いな まず普通に戦力候補だろうよ"}, {"k": "cm", "no": 15, "at": null, "b": "あのさ、仮にもファンサイトが自分の贔屓リーグをセカンドリーグとか侮蔑してるポストをまとめるなよ………"}, {"k": "cm", "no": 28, "at": null, "b": "夕貴、覚えたぞ😡"}, {"k": "cm", "no": 16, "at": null, "b": "鷹やけど東浜は応援するぞー！広島いっても頑張れー！"}, {"k": "cm", "no": 17, "at": null, "b": "よくあるビックリしたみたいな内容じゃなく本人も前向きなコメント残してくれてるのが嬉しい もう一度活躍する姿を見せてくれ"}, {"k": "cm", "no": 18, "at": null, "b": "来てくれる選手は盛大に歓迎したい 怪我や年齢もあるけど、カープでもうひと花咲かせてくれ"}, {"k": "cm", "no": 20, "at": null, "b": "松田元「最大限のバックアップ完了」"}, {"k": "cm", "no": 21, "at": null, "b": "FA流出がないならうーんだけどそんな事言ってる状況かね？ ありがとうございますでいいんじゃね"}, {"k": "cm", "no": 22, "at": null, "b": "コーチ？ソフバンに帰るでしょ！"}, {"k": "cm", "no": 23, "at": null, "b": "亜大の先輩として齊藤と山里宝を引っ張ってくれるといいね"}, {"k": "cm", "no": 24, "at": null, "b": "歓迎するで、ようこそカープへ！ とんでもないとこに来てしまったとすぐに思うかもしれんが めげずに頑張ってくれ"}, {"k": "cm", "no": 25, "at": null, "b": "ベテラン枠も全然居ないから大歓迎です 投手陣を引っ張っていってください"}, {"k": "cm", "no": 26, "at": null, "b": "無償で貰うのもなんか申し訳ないから末包か島内あたりを無償で差し上げて欲しい"}, {"k": "cm", "no": 27, "at": null, "b": "貰っておいて嫌がらせまでするのかよw"}, {"k": "cm", "no": 32, "at": null, "b": "支配下がいっぱいのソフトバンクの人減らしだから気にしないでいいよ"}, {"k": "cm", "no": 29, "at": null, "b": "東浜を一番必要としてる球団はカープなんだよな…"}, {"k": "cm", "no": 30, "at": null, "b": "まあ去年宣言残留だから実質FAみたいなもんや"}, {"k": "cm", "no": 31, "at": null, "b": "なお"}, {"k": "cm", "no": 33, "at": null, "b": "とにかく森下床田の分のイニングを埋めなあかんから投手は大歓迎や…"}, {"k": "cm", "no": 50, "at": null, "b": "マエケンは暗黒戦士なんよ…"}, {"k": "cm", "no": 92, "at": null, "b": "今のうちだって暗黒やろうが！"}, {"k": "cm", "no": 34, "at": null, "b": "結局ベテランが必要なんじゃん マエケンをスルーした意味wwwww"}, {"k": "cm", "no": 48, "at": null, "b": "ソフトバンクでの練習方法やら違うところで役に立ってくれそう"}, {"k": "cm", "no": 55, "at": null, "b": "中日の涌井くらいやってくれれば"}, {"k": "cm", "no": 35, "at": null, "b": "去年FAして全く声がかからず、そして故障もあったとはいえ去年は1試合も上で投げてない…"}, {"k": "cm", "no": 36, "at": null, "b": "パリーグに疎い自分でも ドラフトの時から知ってる選手がカープに来た！！！！"}, {"k": "cm", "no": 38, "at": null, "b": "若手の蓋定期"}, {"k": "cm", "no": 40, "at": null, "b": "まるで有望な若手がいるみたいな言い草だな"}, {"k": "cm", "no": 52, "at": null, "b": "投手で蓋にはならんだろ"}, {"k": "cm", "no": 39, "at": null, "b": "今どんな感じなん？ 大学時代はめっちゃ凄かったよな"}, {"k": "cm", "no": 79, "at": null, "b": "登板→抹消→登板のペースなら先発で7イニングは投げられる…"}, {"k": "cm", "no": 41, "at": null, "b": "もう1人か2人乞食できん？"}, {"k": "cm", "no": 56, "at": null, "b": "現ドラに期待しとけ"}, {"k": "cm", "no": 43, "at": null, "b": "37歳1軍登板なし高年俸…なあ堂林"}, {"k": "cm", "no": 45, "at": null, "b": "九里薮田山崎康晃の師匠 / 山崎康晃の昔は落ちた球は東浜が教えた"}, {"k": "cm", "no": 67, "at": null, "b": "亜細亜大ツーシーム（フォーク）の師匠だよね"}, {"k": "cm", "no": 46, "at": null, "b": "普通に今期の大瀬良くらいはやるだろうな"}, {"k": "cm", "no": 59, "at": null, "b": "東浜に余りにも失礼やろ。"}, {"k": "cm", "no": 47, "at": null, "b": "東浜が再建の礎となりますように"}, {"k": "cm", "no": 49, "at": null, "b": "樽募金トレード"}, {"k": "cm", "no": 51, "at": null, "b": "ソフバンの２軍戦力レベルが１軍にゴロゴロしてるカープならまだ活躍できると踏んだか…"}, {"k": "cm", "no": 53, "at": null, "b": "FA3人組の中からソフトバンクに行った時に人的補償の際も東浜に相談出来るの美味しいな…"}, {"k": "cm", "no": 68, "at": null, "b": "大瀬良なみの人格者らしいからそういうのしないと思うよ…"}, {"k": "cm", "no": 82, "at": null, "b": "選手の素行は知りたいやろ…"}, {"k": "cm", "no": 54, "at": null, "b": "パ専やが去年巨人が則本獲った時に東浜のほうがよほど使えるのに…と思ったもんよ…"}, {"k": "cm", "no": 57, "at": null, "b": "ユニ買うちゃるんじゃ"}, {"k": "cm", "no": 60, "at": null, "b": "タイトルでいきなりコーチ候補扱いはちょっと…"}, {"k": "cm", "no": 62, "at": null, "b": "ソフバン仕込みの練習を見せられるだけでもデカいわ…"}, {"k": "cm", "no": 63, "at": null, "b": "東○巨.....読売に見えてきたｗ"}, {"k": "cm", "no": 64, "at": null, "b": "広島駅に東浜迎えにいかにぁいけんの〜…"}, {"k": "cm", "no": 65, "at": null, "b": "人的ギータって燃えるやつやん…"}, {"k": "cm", "no": 66, "at": null, "b": "大瀬良に新生活の相談してるみたいだし キャッチャー2人で育ててくれ"}, {"k": "cm", "no": 71, "at": null, "b": "将来有望なプロスペクトのキャッチャー居たかな？"}, {"k": "cm", "no": 72, "at": null, "b": "西野に期待。"}, {"k": "cm", "no": 91, "at": null, "b": "聖人が聖人に相談…尊い"}, {"k": "cm", "no": 69, "at": null, "b": "カープのコーチには絶対にならない / 引退後カープに居たことすら無いことにするんじゃ？"}]}, {"id": "tb18d3f7ca9", "team": "ヤクルト", "lg": "se", "rel": "", "cat": "その他", "st": "報道ベース", "h": "池山監督「4番は山田哲人」", "tag": "", "news": "まずは体の状態を見ながら一塁で起用する考え。松下は100万円増で契約更改", "links": [{"n": "デイリースポーツ", "u": "https://www.daily.co.jp/baseball/2026/11/06/0021006782.shtml"}], "src": {"n": "ツバメ速報", "u": "https://tsubamesoku.blog.jp/archives/1086059244.html"}, "note": "前回（11/07 00:54）取得分。記事のコメント25件のうち取得できたのは14件", "isNew": false, "posts": [{"k": "res", "no": null, "at": null, "b": "日本一狭い球場で本塁打数最低は相当やろ 外国人ガチャ引きまくれ"}, {"k": "res", "no": null, "at": null, "b": "後継を作るタイミング逃したな"}, {"k": "res", "no": null, "at": null, "b": "おお"}, {"k": "res", "no": null, "at": null, "b": "山田が4番打てるくらいに復活すればええけどもう無理やろなあ"}, {"k": "res", "no": null, "at": null, "b": "塩見は少し復活しそう"}, {"k": "res", "no": null, "at": null, "b": "助っ人を除いたら多分山田が一番HR打てる気がするわ"}, {"k": "res", "no": null, "at": null, "b": "中　藤澤 二　田中 D サンタナ 一　澤井 右　増田 左　西村 三　松下 遊　長岡 捕　鈴木"}, {"k": "res", "no": null, "at": null, "b": "センターは岩田とたまに並木 ドラ1の藤澤は丸山・増田と出番分け合って赤羽の方が試合出まくる オスナがファースト 山田はまともに試合出られない これが現実"}, {"k": "res", "no": null, "at": null, "b": "哲人にはバフ効果が有るのか チームメイトの打力＋5や"}, {"k": "res", "no": null, "at": null, "b": "村上に戻ってきてもらおう(戻ってきそう)"}, {"k": "res", "no": null, "at": null, "b": "山田はメガネかけたらいけるやろ"}, {"k": "res", "no": null, "at": null, "b": "来年西村はどうかな？ レギュラー定着できるかな？"}, {"k": "res", "no": null, "at": null, "b": "他ファンだけど復活してほしいとは思う 30半ばやし難しいやろけども"}, {"k": "res", "no": null, "at": null, "b": "あんまり起用しないから池山、山田嫌いかと思ってたわ"}]}, {"id": "t3a1c9e0b21", "team": "中日", "lg": "se", "rel": "阪神/広島", "cat": "FA移籍", "st": "報道ベース", "h": "上林誠知が国内FA権の行使を決断、阪神などが関心", "tag": "報道", "news": "中日スポーツが報道。Cランクとみられ、中日とは複数回交渉し条件提示も受けた（まとめ記事内の転載より）", "links": [], "src": {"n": "かーぷぶーん", "u": "https://carp-matome.blog.jp/archives/1084585031.html"}, "note": "転載レス・読者コメント26件を全件掲載。（実在人物への未確認の告発を含むレス2件を省略）", "isNew": true, "posts": [{"k": "res", "no": 154, "at": "2026/11/07 01:51:28", "b": "報道通りであれば阪神が行くんやろうなぁ しかし、怪我さえなければ出番はあるだろうし中日も変わろうとしよる中で行使するのね"}, {"k": "res", "no": 955, "at": "2026/11/07 01:46:10", "b": "上林誠知がＦＡ宣言　 阪神が即アタックみたい"}, {"k": "res", "no": 960, "at": "2026/11/07 01:50:07", "b": "広島も獲得して欲しいけどなぁ上林"}, {"k": "res", "no": 965, "at": "2026/11/07 01:53:37", "b": "上林Cランクだよ フラれても良いからアタックすれば良くないか？　とにかく動く行動見たいよな"}, {"k": "res", "no": 970, "at": "2026/11/07 01:55:57", "b": "阪神は３年総額４億用意らしい。 阪神いなければ３年総額３億で取れそうかと期待したんだけどなぁ。"}, {"k": "res", "no": 1000, "at": "2026/11/07 02:33:28", "b": "カープも上林獲りに参戦だ！ Cランクだから補償必要ないのでカープでも狙えるぞ！"}, {"k": "res", "no": 153, "at": "2026/11/07 01:49:04", "b": "上林FA 工藤が嫌いなんかな"}, {"k": "res", "no": 155, "at": "2026/11/07 01:53:44", "b": "ほー上林出ていくんか"}, {"k": "res", "no": 157, "at": "2026/11/07 02:03:15", "b": "球団とはレギュラーシーズン終了後に複数回にわたって交渉を重ねて条件提示も受けた、とのこと"}, {"k": "res", "no": 158, "at": "2026/11/07 02:05:35", "b": "阪神は佐藤の移籍マネーで24億使って中川小島上林の三人取る気なんやと"}, {"k": "res", "no": 159, "at": "2026/11/07 02:08:17", "b": "そこなんや、とは思う どんだけ外野のこと気にしとんねん"}, {"k": "res", "no": 160, "at": "2026/11/07 02:09:15", "b": "阪神もソフトバンクと同じくらい枠パンパンじゃなかったか"}, {"k": "res", "no": 161, "at": "2026/11/07 02:10:58", "b": "むしろ公表されてるメンバーだけだと枠溢れてる 何が起きてるのかはようわからん"}, {"k": "res", "no": 162, "at": "2026/11/07 02:18:13", "b": "上林のFAは意外だった 工藤監督就任で今から強くなりそうなのに"}, {"k": "res", "no": 163, "at": "2026/11/07 02:19:28", "b": "阪神も無職トレードとかありそうだな >>162 逆に工藤の下でするのが嫌になったんじゃないかな"}, {"k": "res", "no": 164, "at": "2026/11/07 02:20:41", "b": "確かに工藤監督の厳しい指導がやたらとYouTubeとかXで流れてくるし 合わない選手は別の球団に行きたがるのか"}, {"k": "res", "no": 166, "at": "2026/11/07 02:27:15", "b": "仮に中川と両者阪神の場合は、前川あたり難しい位置になりそうやなぁ それが競争だと言われたらそうなんだろうけど"}, {"k": "res", "no": 168, "at": "2026/11/07 02:42:22", "b": "しかし阪神はよくわからんな 森下と高橋遥人さえ稼働すりゃAには入れるだろうけどこの辺大型契約で取って何になるんや"}, {"k": "res", "no": 169, "at": "2026/11/07 02:47:25", "b": "上林は怪我で今季25試合しか出てない この不利な状況でもFA宣言するということはお金ではなく環境面を重視してそう"}, {"k": "res", "no": 156, "at": "2026/11/07 01:58:28", "b": "藤川と工藤で藤川を選んだか"}, {"k": "cm", "no": 1, "at": "2026/11/07 03:30", "b": "人的補償の心配してて草"}, {"k": "cm", "no": 2, "at": "2026/11/07 04:00", "b": "してないと思うが"}, {"k": "cm", "no": 3, "at": "2026/11/07 04:05", "b": "人工芝がイヤなんかな？ 怪我しやすいとか言うし"}, {"k": "cm", "no": 4, "at": "2026/11/07 04:12", "b": "高年俸たくさん抜けて資金は問題ないのに調査もしない"}, {"k": "cm", "no": 5, "at": "2026/11/07 04:33", "b": "調査くらいしろ 何でこの状況で静観できんねん"}, {"k": "cm", "no": 6, "at": "2026/11/07 04:36", "b": "上林は怖い監督が苦手なタイプだから阪神の方が合いそう"}, {"k": "cm", "no": 7, "at": "2026/11/07 04:50", "b": "そんなことより中日が床田調査だってよ"}, {"k": "cm", "no": 8, "at": "2026/11/07 05:39", "b": "クドーに口説かれたら刺さりそうなのやめれ"}, {"k": "cm", "no": 9, "at": "2026/11/07 05:43", "b": "長くやった選手だしな"}, {"k": "cm", "no": 10, "at": "2026/11/07 06:16", "b": "ヤセロ←いいんか？"}, {"k": "cm", "no": 11, "at": "2026/11/07 04:53", "b": "阪神は生え抜き育成に力入れていたから 8年振りのFA参戦 熊谷は仙台育英の同級生　森下はトレーニングジム一緒で毎年自主トレ一緒 でも阪神に来るかは分からん"}, {"k": "cm", "no": 12, "at": "2026/11/07 05:12", "b": "カープが獲るべき選手は一軍経験のある捕手か内野手だから外野手の優先順位は低い 上林に出すお金があるならFA宣言する可能性ある、筒香か太田に全力出す方がイイ"}, {"k": "cm", "no": 13, "at": "2026/11/07 05:44", "b": "上林の金で筒香は取れません"}, {"k": "cm", "no": 14, "at": "2026/11/07 06:28", "b": "梅野ならタダであげるよ …というか引き取って"}, {"k": "cm", "no": 15, "at": "2026/11/07 05:24", "b": "ぶっちゃけスぺ過ぎて全く計算できないからいらない 金満なら検討してもいいけど"}, {"k": "cm", "no": 16, "at": "2026/11/07 06:18", "b": "長くやりたいなら人口芝より天然選ぶ"}, {"k": "cm", "no": 17, "at": "2026/11/07 05:34", "b": "オーナーが辞める これが一番の補強"}, {"k": "cm", "no": 18, "at": "2026/11/07 05:36", "b": "はい出たカープファンの反応スレ←これがごく標準的カープファンの反応"}, {"k": "cm", "no": 19, "at": "2026/11/07 06:20", "b": "◯◯◯←指をくわえて見てるだけ 現実と理想のギャップというやつよ"}, {"k": "cm", "no": 20, "at": "2026/11/07 05:42", "b": "野球がやれれば御の字ってポジションの人間以外 広島に行くわけ無いだろ？ 分からんか自分の立場が"}, {"k": "cm", "no": 21, "at": "2026/11/07 06:25", "b": "すでにやりきった人か(引退後のイチロー)、野球だけに集中したい人(エンゼルス時代の大谷) お金ほしいとかチヤホヤされたいとかは叶わぬ夢"}, {"k": "cm", "no": 22, "at": "2026/11/07 05:48", "b": "太田と牧原とかいう真っ先にで行使を決断みたいな感じあった人らが、未だに行使の検討を決断してるだけなの草"}, {"k": "cm", "no": 23, "at": "2026/11/07 06:32", "b": "太田に関しては阪神が伏見残留の手応えが出た時点で撤退したからな さらには広島には行きたくないから宣言しない"}, {"k": "cm", "no": 24, "at": "2026/11/07 06:05", "b": "阪神はマネーゲームに参加しないわりにFAの立ち回りが上手い 獲得した選手が不良債権化するパターンも少ない"}, {"k": "cm", "no": 25, "at": "2026/11/07 06:32", "b": "巨人の悪口はやめろ"}, {"k": "cm", "no": 26, "at": "2026/11/07 06:35", "b": "阪神→小島 横浜→小島・高橋・森下 巨人→森下 中日→床田 ＳＢ→高橋・森下"}]}, {"id": "tc29e4a8dba", "team": "中日", "lg": "se", "rel": "", "cat": "秋季キャンプ", "st": "報道ベース", "h": "工藤監督「春先の怪我人は準備のレベルが低かったせい。3か月間体力作り」", "tag": "", "news": "秋季キャンプでの発言。12〜1月は介入できない期間とも", "links": [{"n": "なんJ PRIDE", "u": "https://nanjpride.blog.jp/archives/5719985.html"}], "src": {"n": "なんJ PRIDE", "u": "https://nanjpride.blog.jp/archives/5720031.html"}, "note": "", "isNew": false, "posts": [{"k": "res", "no": 2, "at": null, "b": "一理ある！"}, {"k": "res", "no": 3, "at": null, "b": "ソフトバンク時代に怪我人多発させまくった奴が言っても説得力ないやん"}, {"k": "res", "no": 4, "at": null, "b": "少年漫画の1巻目みたいな事言ってんな"}, {"k": "res", "no": 5, "at": null, "b": "いいフラグ"}, {"k": "res", "no": 7, "at": null, "b": "スタートだけ良くて5月にもう身体ボロボロで沈むのは広島だっけ"}, {"k": "res", "no": 16, "at": null, "b": "走って野球上手くなるんやったらいくらでも走るわ！"}, {"k": "res", "no": 21, "at": null, "b": "ホークスの外野全滅級の年は工藤やったっけ"}, {"k": "res", "no": 22, "at": null, "b": "工藤めちゃくちゃ老けてないか？"}, {"k": "res", "no": 27, "at": null, "b": "ダメな球団は何やってもダメなんだよな"}, {"k": "res", "no": 29, "at": null, "b": "工藤のやり方ははたから見るぶんにはええよな"}, {"k": "res", "no": 31, "at": null, "b": "うまなったなぁ！"}, {"k": "res", "no": 32, "at": null, "b": "そんなもん選手個人が自分で考えてやることちゃうんか"}, {"k": "cm", "no": 1, "at": null, "b": "どんだけ体力ないんだよ。"}, {"k": "cm", "no": 2, "at": null, "b": "そのやり方がが正解か不正解はさておき今までやったようなやり方の結果がこの10数年の体たらくだからなあ 色々やってみるしかない"}, {"k": "cm", "no": 3, "at": null, "b": "工藤「ライオンに追われたウサギが肉離れしますか？準備が足りないのです」"}, {"k": "cm", "no": 4, "at": null, "b": "メディカルトレーナー用意するのは フロントと、選手本人の仕事だわな。 監督の仕事じゃない。"}, {"k": "cm", "no": 5, "at": null, "b": "3か月で人は変われるかもしれんが、よそのAクラス球団も普通に成長してるからな Aクラスに入れるのは早くて再来年になるだろうな"}]}, {"id": "t0b5c6d7e81", "team": "ソフトバンク", "lg": "pa", "rel": "広島", "cat": "トレード", "st": "公式", "h": "東浜巨、広島へ無償トレード", "tag": "", "news": "「ホークス14年間色々な事があった。本当に感謝の気持ちしかありません」", "links": [{"n": "デイリースポーツ", "u": "https://www.daily.co.jp/baseball/2026/11/06/0021004722.shtml"}], "src": null, "note": "", "isNew": false, "posts": []}, {"id": "tf5c17db0ed", "team": "日本ハム", "lg": "pa", "rel": "", "cat": "FA移籍", "st": "公式", "h": "西川遥輝・玉井大翔がFA権行使せず残留、新庄監督は水野の二塁コンバート構想", "tag": "", "news": "見出しのみ確認", "links": [{"n": "デイリースポーツ", "u": "https://www.daily.co.jp/baseball/2026/11/06/0021004734.shtml"}], "src": null, "note": "", "isNew": false, "posts": []}, {"id": "te4b06cafdc", "team": "ロッテ", "lg": "pa", "rel": "広島", "cat": "FA移籍", "st": "ネタ", "h": "坂倉獲得なら人的補償は誰に？ファンがプロテクト予想", "tag": "", "news": "交渉解禁の11日にも坂倉へ即アタックとの報道を受け、ファンが人的補償を予想。ジャクソン残留交渉中の噂も", "links": [], "src": {"n": "まとめロッテ！", "u": "https://matomelotte.com/archives/60129513.html"}, "note": "転載レス45件・読者コメント53件を全件掲載", "isNew": false, "posts": [{"k": "res", "no": 154, "at": null, "b": "ついに坂倉が来るぞ 人的どうなる"}, {"k": "res", "no": 164, "at": null, "b": "坂倉の人的で人員マイナスになるのは痛いが 小島の人的で1人増えるから、編成の腕の見せ所だな"}, {"k": "res", "no": 166, "at": null, "b": ">>164 そんなの確実にあかんやつやん"}, {"k": "res", "no": 176, "at": null, "b": "取れたとして吉川快秀奥村らへんから誰か漏れるだろけどそこ突かれて広島行かれるのやだなぁ～… 遠慮してくんないか…"}, {"k": "res", "no": 178, "at": null, "b": "広島は内野手の退団が止まらないし マジで藤岡が外れてたら持っていくかもしれない 人的補償にそんな金は出さないか"}, {"k": "res", "no": 183, "at": null, "b": "かつて長野という実績があるからね 藤岡はあるよ"}, {"k": "res", "no": 185, "at": null, "b": "サブローがプロテクトに関与するなら藤岡外すだろうな その方が藤岡も出番あるだろうし"}, {"k": "res", "no": 191, "at": null, "b": "普通に池田か宮崎でしょ"}, {"k": "res", "no": 199, "at": null, "b": "カープは人的でどこが欲しいんだろうな それどポジションは問わず1番良いと思った選手獲るのかな？"}, {"k": "res", "no": 209, "at": null, "b": ">>199 ロッテと同じく投打ともにガバガバだからおそらくそうなんじゃない"}, {"k": "res", "no": 224, "at": null, "b": ">>199 小園矢野消えてズタボロになった内野かなと思ったけどドラフトで結構指名したからな 森下床田消えて投手もヤバいんだよな とは言え広島はまだ投手はいるしロッテの余剰投手なんて要らないだろうから多分内野手だな 藤岡外したらピンズドな気もするがなあ"}, {"k": "res", "no": 210, "at": null, "b": "広島は、オリックスから人的補償で当時若手のプロスペクトだった日高とって失敗したから、若手とって何も戦力にならないよりある程度実績ある選手取りにくるか？ かといってロッテ側も(恐らくプロスペクト守って)1軍実績ある酒居放出して痛い目見てるから八木小…"}, {"k": "res", "no": 215, "at": null, "b": ">>210 広島は確保するなら野手だと思う 特に二遊間"}, {"k": "res", "no": 213, "at": null, "b": "安田を守る余裕がマジでない"}, {"k": "res", "no": 218, "at": null, "b": "坂倉取っても安田持っていかれたら意味がない 普通にプロテクトすると思うぞ 持っていかれるのは大斗あたりかな"}, {"k": "res", "no": 226, "at": null, "b": "大斗はあるかもね 広島は内野流出が目立つけど地味に超期待の外野手の田村が抜けたのも結構痛手だからね 田村の代わりとして大斗を獲得は有り得るね 下手に池田を獲得しても内野問題は解決しないし 安田は間違いなくプロテクトすらから"}, {"k": "res", "no": 232, "at": null, "b": "坂倉人的補償ありなのか となると、安田山本池田上田あたりが取られる可能性あるって事か・・・・"}, {"k": "res", "no": 238, "at": null, "b": ">>232 ネットで簡単にシュミレーションできるサイトがあるからやってみると分かるけど 上田安田山本は余裕でプロテクトできるよ"}, {"k": "res", "no": 242, "at": null, "b": ">>238 藤岡西野石川外しちゃえばいいんだよな"}, {"k": "res", "no": 318, "at": null, "b": ">>242 そうそう、石川柊は経緯的に出してしまうと後々FA候補から敬遠されそうなので政策的には残しておいた方が良いと思うけど"}, {"k": "res", "no": 233, "at": null, "b": "大斗なら米子から家族も見に行きやすいね"}, {"k": "res", "no": 240, "at": null, "b": ">>233 米子と広島って車で３時間くらいかかるぞ 米子空港から羽田に飛べるから下手すりゃマリンの方が早く到着できる"}, {"k": "res", "no": 260, "at": null, "b": "ベテラン勢でプロテクトするのは益田1人で充分だろう"}, {"k": "res", "no": 262, "at": null, "b": "まあ安田はプロテクトされるでしょうねキャンプでもサブローが直で指導してるしまだ現場は諦めてないんでしょ"}, {"k": "res", "no": 269, "at": null, "b": "前にここで藤岡は複数年結んでるからプロテクトされるって言ってた人いたけど、あれってどうなん？"}, {"k": "res", "no": 271, "at": null, "b": ">>269 複数年契約を結んでるからプロテクトしないといけないというルールはないよ"}, {"k": "res", "no": 274, "at": null, "b": "ぶっちゃけ本人の同意があればプロテクト外してもいいよな"}, {"k": "res", "no": 276, "at": null, "b": "広島は即戦力とかいらないだろ、有望な安い若手"}, {"k": "res", "no": 277, "at": null, "b": "複数年契約からの人的補償は西武江藤が前例としてあるけど それから20年経って選手会とかも契約関連でうるさくなったいま複数年契約中のプロテクトについて契約締結時に文言あってもおかしくはないよな"}, {"k": "res", "no": 278, "at": null, "b": "投手　毛利種市富士木村廣池高橋石垣高野鈴木横山大谷田中奥村中森吉川 捕手　松川寺地佐藤岡村 内野　友杉小川上田櫻井 外野　高部藤原山口西川井上 画像貼れないから文字ですまんけど個人的にはこうかな"}, {"k": "res", "no": 286, "at": null, "b": ">>278 自分なら大谷外して山本だな 球威が戻ってきてるとはいえ、ケガ明けでどうなるかまだわからない実績なしの中堅を指名するとは考えにくいし、指名されたら仕方ないで割りきれる選手"}, {"k": "res", "no": 298, "at": null, "b": ">>286 たしかに今のカープが怪我明けで計算できない実績ナシの来年27歳獲る可能性は低いね 一応実績ある大斗守った方がいいかもしれんな"}, {"k": "res", "no": 279, "at": null, "b": "池田は交流戦に強いイメージあるからセ合いそうだけど 広島が池田にそこまで魅力を感じるかどうかやな"}, {"k": "res", "no": 285, "at": null, "b": "FAカウンターでプロテクトが作れる 予想した人の集計データもある（リンク省略）"}, {"k": "res", "no": 289, "at": null, "b": "取られるラインとしては小野冨士辺りじゃないかな プロテクト外れるなら安田八木辺りも候補"}, {"k": "res", "no": 307, "at": null, "b": "新人だからって田中や富士のプロテクトは要らんと思う プロスペクトでもなきゃ実績もないし彼らよりは価値のある選手が漏れるだろうからそっちに行くはず"}, {"k": "res", "no": 308, "at": null, "b": "人的保証で二軍ですら実績ない若手とるのは愚策だと思うわ"}, {"k": "res", "no": 309, "at": null, "b": "人的は大正選手の今の実力もしくは将来性ともらえる金額との天秤だからね"}, {"k": "res", "no": 312, "at": null, "b": "プロテクト考えるとショボすぎて泣けるな 吉川とか山本までプロテクトできてしまう これ金銭になるんじゃないの"}, {"k": "res", "no": 316, "at": null, "b": "プロテクト外なんてそんなもんだろ 実績ない若手か天井見えてる中堅かプレイヤーとしての魅力は落ちたベテランかしかないだろ"}, {"k": "res", "no": 321, "at": null, "b": "広島がキンセン選手を選ぶってことは多分無いよな"}, {"k": "res", "no": 322, "at": null, "b": ">>321 ちょっと頭数が減りすぎてるからな"}, {"k": "res", "no": 325, "at": null, "b": "森下床田はAランクなんやな 坂倉はBだし金銭は選ばなそうやね"}, {"k": "res", "no": 329, "at": null, "b": "万が一獲得出来たとしても石川柊西野益田藤岡あたりプロテクトして奥村とか持っていかれるのが松本クオリティ"}, {"k": "res", "no": 334, "at": null, "b": "中郷や酒居をプロテクトしなかったのを見ると中堅より若手を重視して守る傾向なのかなとも思う まあ実際は分からんけどw"}, {"k": "cm", "no": 1, "at": null, "b": "そもそも坂倉は来てくれるのかという(丸や近藤を思い出しながら)"}, {"k": "cm", "no": 2, "at": null, "b": "ポジション読めないよな3球団のリストから天秤かけるだろうから"}, {"k": "cm", "no": 3, "at": null, "b": "お邪魔させていただいたちなcですが、当チームはボロボロなのでどのポジションの選手でもありがたくお迎えすることになりそうです。"}, {"k": "cm", "no": 4, "at": null, "b": "まず広島にプロ野球選手と呼べる選手が栗林しかいないからな 全て穴 そん中でも捕手と先発を狙ってくるぞ"}, {"k": "cm", "no": 5, "at": null, "b": ">>3 残念ながらロッテも見ての通りボロボロなのでもし坂倉が来てくれても過剰な期待はしないでほしい 誰よりも東浜の方が活躍するよ"}, {"k": "cm", "no": 6, "at": null, "b": "外野の層も厚そうで厚くないからなあ マジで藤岡あたり貰ってくれれば一番ありがたい"}, {"k": "cm", "no": 7, "at": null, "b": ">>6 まずありえないかな…… 藤岡のプロテクトどうこうというより、藤岡とるなら安くて動ける山崎取るだろという意味で 同じ理由で石川柊もほぼない。河村でいいってなる"}, {"k": "cm", "no": 8, "at": null, "b": "もっと現実を見ろ まずどう考えてもロッテになんて来るわけないし、それでもプロテクトリスト提出したいんなら勝手にしろ どうせ獲得できずに人的補償だけ取られて終わるだけや"}, {"k": "cm", "no": 9, "at": null, "b": "投手は吉川高橋くらいまでがっつり守って、外野リリーフ薄めくらいでええ気がする 明らかに美味しいの漏れてない限り向こうは二遊狙うだろ。新人じゃ計算できないし、何故か完全消失した…"}, {"k": "cm", "no": 10, "at": null, "b": ">>8 人的だけ強奪されてて草　どういうことやねん"}, {"k": "cm", "no": 11, "at": null, "b": "小野か山崎とか藤岡とか宮崎とか松川で釣りたいが 大斗安田友杉プロテクトしてないリストなんか論外だわ"}, {"k": "cm", "no": 12, "at": null, "b": "正直坂倉で人的とられるのもなんかなあって感じなんだよな そりゃ藤岡とか石川柊で済むならいいけどさ"}, {"k": "cm", "no": 13, "at": null, "b": "森下と床田の人的補償もあるから広島は即レギュラー2人に若手1人位取りそう"}, {"k": "cm", "no": 14, "at": null, "b": "今より高いレベルの環境(ライオンズ)で挑戦したいと思うのは野球人として当然の思いやからな 地元にも近いし、広池の顔も立つし、まさに相思相愛やろ"}, {"k": "cm", "no": 15, "at": null, "b": "どうにかして小島の移籍先からとれる人的を広島が選んで持っていく三角トレードみたいな形に出来ないだろうか"}, {"k": "cm", "no": 16, "at": null, "b": "人的補償で小野なんか獲って代わりに酒居流出するような頭の悪すぎる球団とは訳が違うから 当たり前のようにちゃんとした人的補償獲得するでしょう ...ちゃんと補償になる選手が一人も居ない？それは..wそうっすねwww"}, {"k": "cm", "no": 17, "at": null, "b": "安田プロテクトしなくても大丈夫そうだけどな 活躍したとしても最速1年でFAされるリスクあるから取りにくい そもそも3年連続warマイナス、4年連続wRC+100未満の中堅守備難コーナーだし…"}, {"k": "cm", "no": 18, "at": null, "b": "取らぬ狸の皮算用すぎないか？ 獲得決まってから考えればいいのに"}, {"k": "cm", "no": 19, "at": null, "b": "自分で作ったプロテクトリストを公開してる奴は馬鹿だし それに対してなんで◯◯が漏れてるんだ！ってキレてる奴も馬鹿"}, {"k": "cm", "no": 20, "at": null, "b": ">>16 小野なんかって凄い言い方 小野だって1軍で活躍していた時期があるし美馬と大地のFAは結果的にほぼトントン、実質トレードだったでしょうが"}, {"k": "cm", "no": 21, "at": null, "b": ">>16 それに当時の小野はプロスペクト 酒居は当時ロッテで成績が下降気味だった その背景をすっかり忘れて楽天に移籍してからの酒居の成績で漏らすなんて馬鹿というのはあまりにもおかしすぎる"}, {"k": "cm", "no": 22, "at": null, "b": "大斗くださいお願いします"}, {"k": "cm", "no": 23, "at": null, "b": ">>22 二軍であんなに打てるバッターカープに1人もいない"}, {"k": "cm", "no": 24, "at": null, "b": ">>16 酒居が環境が変わって気分一新できたから楽天で成績を出せただけ ロッテにいたらとっくに首だったかもしれないのにほんとご都合主義だよね"}, {"k": "cm", "no": 25, "at": null, "b": "何が悲しいって秋季キャンプで仲睦まじい様子から いきなり人的で翌日からカープになるんやからなー好きな選手なら尚更悲しいな 状況違えど愛斗もマリンでの練習はしとったもんな たまたま上田…"}, {"k": "cm", "no": 26, "at": null, "b": "マジで坂倉割に合わないんよな 補償や年俸の高さ考えたら明らかに小園の方が良い そこで浮いた分でジャクソンやルケシー、新外国人に投資すべきよ"}, {"k": "cm", "no": 27, "at": null, "b": ">>16 酒居より小野の方が上だからね"}, {"k": "cm", "no": 28, "at": null, "b": "広島のゾンビと同じくロッテのプロテクト漏れも稼働しないという地雷だらけだからな"}, {"k": "cm", "no": 29, "at": null, "b": "小島が阪神に移籍濃厚だから、阪神から貰えそうな人的補償の選手と見比べて坂倉のプロテクトは作るべきだな 阪神から内野手か投手を取りたい"}, {"k": "cm", "no": 30, "at": null, "b": "小野,河村,山本,池田,井上,大谷 は全部プロテクト外 この５人が有力 次点は吉川、高橋"}, {"k": "cm", "no": 31, "at": null, "b": "過去のドラフトでリストアップしてた選手とか対戦時に活躍してた選手を狙うんじゃないか 内野はドラフト組優先起用で戦力外拾えば頭数埋まるから プロテクトするなら投手中心になりそう ロッテは使い潰したりしないから中堅クラスの中継ぎもけっこう使える"}, {"k": "cm", "no": 32, "at": null, "b": "どいつもこいつも奥村外せとか頭イカれてんな いかに1軍しか見ていないのがわかるし指名拒否されるリスクとかわからない感情論でしか考えてないやつばっかなんだな"}, {"k": "cm", "no": 33, "at": null, "b": ">>22 どうぞ ボールに当たらなすぎてイライラしないようにな"}, {"k": "cm", "no": 34, "at": null, "b": ">>22 二軍の帝王ではあるんだけど一軍じゃね.... 大斗は去年の交流戦以外はほとんど打ってない"}, {"k": "cm", "no": 35, "at": null, "b": ">>29 小幡か岡留もれそうなら欲しい"}, {"k": "cm", "no": 36, "at": null, "b": ">>8 君はまずルールを勉強しよう"}, {"k": "cm", "no": 37, "at": null, "b": ">>32 そもそも奥村外して誰を守るつもりなんやろな 一軍だけを考えても代わりに守れる選手なんて大したの居ないのに"}, {"k": "cm", "no": 38, "at": null, "b": "もし和田くんだったら広島の暑さに耐えられるのか心配になる"}, {"k": "cm", "no": 39, "at": null, "b": "ピッチャーだと髙橋・吉川 バッターだと松川・井上のどれかは外れて狙われそうよね"}, {"k": "cm", "no": 40, "at": null, "b": "井上は多分プロテクトしないと思う（よっぽど編成が入れ込んでない限り） 元々セでウェスタンなんだから井上の問題点は広島で把握できてるはずだしそこまで打ててるわけではないからな 髙橋も期待してるだろうから普通に入って松川・吉川辺りは…"}, {"k": "cm", "no": 41, "at": null, "b": ">>8 うかつに参戦できないやんけ！"}, {"k": "cm", "no": 42, "at": null, "b": ">>34 内緒やけど今年の広島に今年の山本よりHR打ってる日本人選手5人しかおらんのやで… ちなみに外野手登録で見ると今年の山本で2位になるんや…"}, {"k": "cm", "no": 43, "at": null, "b": ">>35 小幡って守れない友杉になってるが…"}, {"k": "cm", "no": 44, "at": null, "b": "被るの外すしかないんでないかあまり使わないだろう"}, {"k": "cm", "no": 45, "at": null, "b": ">>37 どうせ山本とか和田とか言い始めるだろうな もっとひどいと藤岡"}, {"k": "cm", "no": 46, "at": null, "b": ">>35 どっちもいらねえだろが"}, {"k": "cm", "no": 47, "at": null, "b": "三冠王を獲得した頃の落合博光"}, {"k": "cm", "no": 48, "at": null, "b": "坂倉森下床田の移籍先次第かな プロテクト外の先発ぽいの居るかどうかだし"}, {"k": "cm", "no": 49, "at": null, "b": "仮にFA獲得出来たとして プロテクト確実に益田が漏れない？"}, {"k": "cm", "no": 50, "at": null, "b": "益田は洩れても仕方ない いなくなったら残念でも名球会も決めてくれた"}, {"k": "cm", "no": 51, "at": null, "b": ">>8 こう言うキチガイでも発言出来る今の世の中って本当に狂ってるなと思うわ。"}, {"k": "cm", "no": 52, "at": null, "b": "そこそこ才能のありそうな若手だろうな。 投手だったら奥村、河村、冨士。 野手だと池田、宮崎、山本、桜井辺りか。"}, {"k": "cm", "no": 53, "at": null, "b": ">>14 西武… いくわけないやろ笑"}]}, {"id": "t5e6f7a8b92", "team": "楽天", "lg": "pa", "rel": "", "cat": "コーチ人事", "st": "報道ベース", "h": "大家友和氏がコーチに入閣", "tag": "", "news": "AIでのデータ取得を許可されていないサイトです。元記事を参照してください。", "links": [{"n": "なんじぇいスタジアム", "u": "http://blog.livedoor.jp/nanjstu/archives/63590411.html"}], "src": null, "note": "", "isNew": false, "posts": []}, {"id": "t6f7a8b9ca3", "team": "オリックス", "lg": "pa", "rel": "阪神", "cat": "FA移籍", "st": "公式", "h": "中川圭太が国内FA権を行使（阪神欄参照）、寺西は巨人戦登板に名乗り", "tag": "", "news": "見出しのみ確認", "links": [{"n": "デイリースポーツ", "u": "https://www.daily.co.jp/baseball/2026/11/06/0021004738.shtml"}], "src": null, "note": "", "isNew": false, "posts": []}, {"id": "t4a1c2a5532", "team": "西武", "lg": "pa", "rel": "", "cat": "その他", "st": "公式", "h": "岸潤一郎が首を手術、球団発表", "tag": "", "news": "見出しのみ確認。髙橋光成の海外FA権行使・平良のポスティング挑戦も（BASEBALL KING）", "links": [{"n": "デイリースポーツ", "u": "https://www.daily.co.jp/baseball/2026/11/06/0021006419.shtml"}, {"n": "BASEBALL KING", "u": "https://baseballking.jp/ns/711854/"}], "src": null, "note": "", "isNew": false, "posts": []}, {"id": "t06d28ec1fe", "team": "球界総合", "lg": "etc", "rel": "ソフトバンク/日本ハム/ロッテ/楽天/西武", "cat": "その他", "st": "公式", "h": "パ5球団に登録の個人情報が流出（PLM発表）", "tag": "", "news": "メール配信サービスへの不正アクセスで試合速報メール等の登録者アドレスが流出。オリックスは対象外", "links": [{"n": "Full-Count", "u": "https://full-count.jp/2026/11/06/post2041471/"}], "src": {"n": "なんJ（まとめては）いかんのか？", "u": "https://livejupiter2.blog.jp/archives/11128138.html"}, "note": "転載レス33件・読者コメントを全件掲載。（実在人物への未確認の告発を含むレス2件を省略）", "isNew": false, "posts": [{"k": "res", "no": 7, "at": null, "b": "オリックスだけセーフ"}, {"k": "res", "no": 15, "at": null, "b": "オリックスだけハブられてるサービスあるんか"}, {"k": "res", "no": 10, "at": null, "b": "オリックスつよい"}, {"k": "res", "no": 11, "at": null, "b": "オリックス一人勝ちや"}, {"k": "res", "no": 31, "at": null, "b": "アララ株式会社wwwwww / あらら～"}, {"k": "res", "no": 39, "at": null, "b": "アララ、やっちゃいましたね"}, {"k": "res", "no": 53, "at": null, "b": "アララ株式会社って名前が嫌すぎるやろ"}, {"k": "res", "no": 104, "at": null, "b": "オリは試合速報メールやってないから漏れなかった（画像付き）"}, {"k": "res", "no": 224, "at": null, "b": "ロッテだけどさくさ紛れに自前サービスでの流出報告してて草"}, {"k": "res", "no": 62, "at": null, "b": "オリックスなんで入ってないの"}, {"k": "res", "no": 92, "at": null, "b": "オリックス無失点の堅い守備いいね"}, {"k": "res", "no": 161, "at": null, "b": "オリックスにペナントのアドバンテージ10勝あげよう"}, {"k": "res", "no": 110, "at": null, "b": "試合速報メールって今時登録してる人おるんやな"}, {"k": "res", "no": 148, "at": null, "b": "速報メルマガって試合が動くとメールが飛んでくるんか？今の時代に？"}, {"k": "res", "no": 197, "at": null, "b": ">>148 昔登録しててそのままって人が多そう"}, {"k": "res", "no": 228, "at": null, "b": "ソフトバンクも楽天もいて何やってんだ！"}, {"k": "res", "no": 234, "at": null, "b": ">>228 そもそも楽天証券がね…"}, {"k": "res", "no": 298, "at": null, "b": "楽天『今後はFAXで配信します』"}, {"k": "res", "no": 249, "at": null, "b": "なんでオリックスだけ仲間外れにされてるの？ / もしかして他5球団で秘密のやりとりしてる？"}, {"k": "res", "no": 268, "at": null, "b": "ハッカーからのバファエール"}, {"k": "res", "no": 402, "at": null, "b": "ハッカー『個人情報取るで～ｗ』 / ハッカー『…オリックスのはええか』 / こうですか？"}, {"k": "res", "no": 413, "at": null, "b": "ハッカー浅村説"}, {"k": "res", "no": 111, "at": null, "b": "いうほどオリファンの情報欲しいか？"}, {"k": "res", "no": 116, "at": null, "b": ">>111 少ないものほど希少価値高いから必要やぞ"}, {"k": "res", "no": 327, "at": null, "b": "オリックスファンの3人は未だに謎か…"}, {"k": "res", "no": 348, "at": null, "b": "オリックスだけ侍ジャパンに呼ばれてないし最近ハブられてる"}, {"k": "res", "no": 25, "at": null, "b": "広島カープさん、セ・リーグを救ってしまう"}, {"k": "res", "no": 36, "at": null, "b": "もしかしてこれゾンビーズがセ・リーグTV渋ってたお陰か"}, {"k": "res", "no": 386, "at": null, "b": "カープのお陰でセは回避 / 感謝しろよ"}, {"k": "res", "no": 361, "at": null, "b": "漢広島、流出を主力選手数名だけに絞るファインプレー"}, {"k": "res", "no": 193, "at": null, "b": "メアド流出くらいやったらもうどうでもいい感すらあるな"}, {"k": "res", "no": 194, "at": null, "b": "もう防ぎようがなくない？"}, {"k": "res", "no": 275, "at": null, "b": "なんかもう毎日流出してメアドだけならそっかあって感覚になってくるわ"}, {"k": "cm", "no": 76, "at": null, "b": "明日は我が身やが / 漏れた所が必死に大喜利やってそうなのは伝わってくる"}, {"k": "cm", "no": 73, "at": null, "b": "オリ公式Xの文面を見る限り『自前か別の委託先がメルマガやってるからセーフ』って感じか"}, {"k": "cm", "no": 72, "at": null, "b": "セリーグヒロカプに救われてて草"}, {"k": "cm", "no": 71, "at": null, "b": "3連覇したのにまだファンは3人しかおらんのか？"}, {"k": "cm", "no": 67, "at": null, "b": "ゾンビのおかげで防げるとか / FF10のオールデスかよ"}, {"k": "cm", "no": 65, "at": null, "b": "ｱ ｱﾗﾗﾗｧ ｱ ｱｧ!"}, {"k": "cm", "no": 63, "at": null, "b": "オリックス式プロテクトやめろ"}, {"k": "cm", "no": 61, "at": null, "b": "そういえばオリックスにモレルっていたよな…"}, {"k": "cm", "no": 60, "at": null, "b": "同窓会の名簿流出したけど同窓会に呼ばれてないからノーダメ的なアレか…"}, {"k": "cm", "no": 59, "at": null, "b": "王者カープ、入れ替わりでの2026年日本一決定！ / ここ4年で4回目の名誉日本一！！！"}, {"k": "cm", "no": 58, "at": null, "b": "だからといってgmoのガバガバと熊谷のイキりは許されない"}, {"k": "cm", "no": 64, "at": null, "b": ">>58 誰も許してないし…"}, {"k": "cm", "no": 77, "at": null, "b": ">>66 ま！？詳しく"}, {"k": "cm", "no": 56, "at": null, "b": "オリックスファン3人メールアドレス持ってない説"}, {"k": "cm", "no": 54, "at": null, "b": "アララアァイィ！！"}, {"k": "cm", "no": 52, "at": null, "b": "ハッカー『パシフィックリーグは5球団しかないんやな』"}, {"k": "cm", "no": 74, "at": null, "b": ">>52 オリがここにサービス委託してないだけやで"}, {"k": "cm", "no": 49, "at": null, "b": "これオリックスは寝耳に水やろ"}, {"k": "cm", "no": 47, "at": null, "b": "バッファローズだと間違えた可能性"}, {"k": "cm", "no": 46, "at": null, "b": "ハッカー『これまでのFAプロテクトリストと現ドラリストを入手したぞ😎』"}, {"k": "cm", "no": 45, "at": null, "b": "そもそも、オリックスはファンが３人しか居ないから、球団としてこういうサービスを利用するメリットが無い"}, {"k": "cm", "no": 44, "at": null, "b": "広島はまだパンチカード式だから"}, {"k": "cm", "no": 43, "at": null, "b": "オリックス本体で先に2万人以上の情報漏洩してたからもっと酷いんだよなあ"}, {"k": "cm", "no": 42, "at": null, "b": "まあメールアドレスくらいならもうとっくに漏れてるからセーフやろ いくつかWEBサービスつかってる人なら住所名前が漏れてるのはもうデフォで、…"}, {"k": "cm", "no": 41, "at": null, "b": "元『うちは紙と鉛筆と黒電話じゃけ』"}, {"k": "cm", "no": 40, "at": null, "b": "そういやオリックスにモレルって奴いたな"}, {"k": "cm", "no": 39, "at": null, "b": "オリックスは3人分の顧客情報抜いても仕方ないからな / そりゃスルー安定やわ"}, {"k": "cm", "no": 38, "at": null, "b": "今時なんjやってるやつも同類やろ"}, {"k": "cm", "no": 36, "at": null, "b": "護身完成"}, {"k": "cm", "no": 35, "at": null, "b": "オリ達の 守備よりガバい セキュリティ"}, {"k": "cm", "no": 30, "at": null, "b": "そんなサービスあるの知らんかった"}, {"k": "cm", "no": 31, "at": null, "b": "永遠の17歳『アラアラ♥️』"}, {"k": "cm", "no": 29, "at": null, "b": "ハッカー『オリックスって何の会社や…？』"}, {"k": "cm", "no": 70, "at": null, "b": ">>29 オリックスグループってまぁまぁデカいやろ / デカすぎて何してるか分からんけど"}, {"k": "cm", "no": 33, "at": null, "b": ">>28 個人情報が漏れるって事は、 ・自宅に誰が出したかわからん年賀状が殺到する ・自分の名義で爆破予告等の犯罪・反社会的行為が起きる …"}, {"k": "cm", "no": 27, "at": null, "b": "ロッテ単独の方が件数多いやんけ"}, {"k": "cm", "no": 26, "at": null, "b": "オリックスファンが登録してなかっただけでは？"}, {"k": "cm", "no": 34, "at": null, "b": ">>26 試合速報メールのサービス自体はちゃんとやってたりしたら…せつないわね"}, {"k": "cm", "no": 75, "at": null, "b": "『球団の公式アプリで試合経過見れるからええやろ』って感じやな / そもそもこのサービスに参加してない / オリックスが断ったのかアララが声をかけなかったのかは知らん"}, {"k": "cm", "no": 25, "at": null, "b": "ファンが3人しかいないからな"}, {"k": "cm", "no": 68, "at": null, "b": ">>25 噂によると3人で情報共有し合ってたからこのサービスは使ってなかったらしい"}, {"k": "cm", "no": 24, "at": null, "b": "本人確認が不要なら苗字はありきたりなので本当、下の名前は偽名 生年月日も違う 景品粗品は欲しいから住所だけ本当…"}, {"k": "cm", "no": 22, "at": null, "b": "ここ最近の広島東洋は真面目に話題になっててくさ"}, {"k": "cm", "no": 20, "at": null, "b": "サイバー関係での名前でインパクトがあったのは アサヒビールを攻撃したハッカー集団の名前が『Qilin（キリン）』"}, {"k": "cm", "no": 19, "at": null, "b": "これは大変なことやと思うよ"}, {"k": "cm", "no": 18, "at": null, "b": "パッサンまたお漏らしｼﾞｮﾎﾞﾎﾞﾎﾞwwwwwwwww ｱﾗﾗwwwwwww"}, {"k": "cm", "no": 16, "at": null, "b": "アララってとこからクレジットカードの不正使用が確認されたのでクリックして確認してください、みたいないかにもなフィッシングメール来てたな…"}, {"k": "cm", "no": 15, "at": null, "b": "広島東洋とかいうセキュリティ最強企業()"}, {"k": "cm", "no": 17, "at": null, "b": ">>15 なんでや！辛いさんはスマホにしたやろ！！"}, {"k": "cm", "no": 37, "at": null, "b": ">>15 今年になってやっと公式Xを作った球団だ 面構えが違う"}, {"k": "cm", "no": 50, "at": null, "b": ">>15 人材が流出しとるやんけ！"}, {"k": "cm", "no": 51, "at": null, "b": ">>15 『今シーズンのチケット並び順で手売りするで〜』 やっぱ昭和のセキュリティが最強や！"}, {"k": "cm", "no": 62, "at": null, "b": ">>15 セキュリティ面でfaxが再評価されてるみたいでいいね"}, {"k": "cm", "no": 69, "at": null, "b": ">>62 三木谷最強でいいか？"}, {"k": "cm", "no": 14, "at": null, "b": "ロッテの流出酷くて草 王者は驕らず勝ち進む"}, {"k": "cm", "no": 13, "at": null, "b": "Xにハッカーからお断りックスってコメントあってワロタ"}, {"k": "cm", "no": 30, "at": null, "b": ">>13 不正にアクセスしといてお断りするって何様やねん"}, {"k": "cm", "no": 11, "at": null, "b": "みんなで漏らせば怖くない"}, {"k": "cm", "no": 23, "at": null, "b": ">>11 クソを漏らすな"}, {"k": "cm", "no": 10, "at": null, "b": "AHRAメッセージ？"}, {"k": "cm", "no": 9, "at": null, "b": "アラアラ、ウフフ"}, {"k": "cm", "no": 8, "at": null, "b": "メアド流出くらいでピーピー騒ぐなw"}, {"k": "cm", "no": 6, "at": null, "b": "ア アラララァ ア アァ!"}, {"k": "cm", "no": 12, "at": null, "b": ">>6 SOUL'd OUT復活してクレメンス"}, {"k": "cm", "no": 21, "at": null, "b": ">>6 どっちかというとセ・リーグ（筒香・山田）やんけ"}, {"k": "cm", "no": 5, "at": null, "b": "ちなオリだが、試合の開始と終了（結果）だけならバファポンのXで十分間に合ってる 試合速報メールってどんな内容が送られてくるの？…"}, {"k": "cm", "no": 7, "at": null, "b": ">>5 試合の展開とか決着時には勝ち投手・負け投手とかを逐一メール配信するサービス"}, {"k": "cm", "no": 48, "at": null, "b": ">>7 その内容ならスポナビとか球団アプリでも何とかなりそうだな"}, {"k": "cm", "no": 57, "at": null, "b": ">>48 スマホとか持ち込めずWebサイト閲覧とかも規制されていて、会社PCのメールボックスしか見れない人とかなら役に立ちそう。…"}, {"k": "cm", "no": 4, "at": null, "b": "日本の個人情報管理が阪神下位打線よりガバスカなのは一体何やねんホンマ…"}, {"k": "cm", "no": 53, "at": null, "b": ">>4 今時はAIアタックだから全世界ボロボロ流出してるぞ"}, {"k": "cm", "no": 55, "at": null, "b": ">>53 何か此間も同時撃墜予告とかあったしどないなっとるんや"}, {"k": "cm", "no": 3, "at": null, "b": "漏洩という選択肢はない"}, {"k": "cm", "no": 2, "at": null, "b": "何もしないって最強のセキュリティ対策よな"}, {"k": "cm", "no": 1, "at": null, "b": "アララ〜wwwwwwwww"}]}, {"id": "tcce2474a7f", "team": "球界総合", "lg": "etc", "rel": "ロッテ/DeNA", "cat": "国際大会", "st": "公式", "h": "侍ジャパン、井口監督の初陣・7日ロッテ戦のスタメン発表", "tag": "", "news": "先発は金丸夢斗。度会6番、松尾8番、石田裕太郎が5〜6回の予定", "links": [{"n": "デイリースポーツ", "u": "https://www.daily.co.jp/baseball/2026/11/06/0021006608.shtml"}], "src": {"n": "ベイスターズNEWS", "u": "https://baynews.blog.jp/archives/35441021.html"}, "note": "前回取得分（シートには登録済み）", "isNew": false, "posts": [{"k": "res", "no": null, "at": null, "b": "カメラのピントを奪うわてぃ"}, {"k": "res", "no": null, "at": null, "b": "練習試合、わてぃ6番としおん8番"}, {"k": "res", "no": null, "at": null, "b": "わてぃ6番予想当たった 日テレGタスで見れそう"}, {"k": "res", "no": null, "at": null, "b": "ポも投げる"}, {"k": "res", "no": null, "at": null, "b": "「ポ」だけで通じるようになった小石田くん 石田裕太郎のどこにも「ポ」が入ってなくてかわいい"}, {"k": "res", "no": null, "at": null, "b": "裕太郎も2イニングか アピールしてきなさい"}, {"k": "res", "no": null, "at": null, "b": "投手陣豪華やねえ 松尾は、夢斗・竹丸の球を受けられるのいいね"}, {"k": "res", "no": null, "at": null, "b": "アジチャンの先発は金丸と宏斗は確定で、武内・竹丸・石田裕から2人が練習試合の内容とかで決める予定らしい あぶれた1人は第二先発枠"}, {"k": "res", "no": null, "at": null, "b": "裕太郎にも先発のチャンスが！？"}, {"k": "res", "no": null, "at": null, "b": "アカン！裕太郎が援護の味をしめてしまう…"}]}, {"id": "t17e39fd20f", "team": "球界総合", "lg": "etc", "rel": "", "cat": "その他", "st": "公式", "h": "時事通信社員がキャンプの練習球を持ち帰りフリマで売却、同社が謝罪", "tag": "", "news": "2月の春季キャンプ取材中に20代社員が球団の許可なく練習球を持ち帰り売却していたと発表", "links": [], "src": {"n": "ツバメ速報", "u": "https://tsubamesoku.blog.jp/archives/1086059190.html"}, "note": "転載レス7件・読者コメント13件を全件掲載", "isNew": false, "posts": [{"k": "res", "no": 1, "at": null, "b": "時事通信社は5日、今年2月にプロ野球4球団の春季キャンプを取材した編集局映像センター写真部所属の20代の男性社員が、練習球を無断で持ち帰り、フリーマーケットサイトで売却していたと発表した。"}, {"k": "res", "no": 5, "at": null, "b": "今は何でも転売や　1億総テンバイヤー時代なんやで"}, {"k": "res", "no": 6, "at": null, "b": "草"}, {"k": "res", "no": 7, "at": null, "b": "これなんでダメなん？"}, {"k": "res", "no": 10, "at": null, "b": ">>7  帽子はともかく、練習球は球団の所有物やろ…"}, {"k": "res", "no": 9, "at": null, "b": "結構な数持って帰ってんな"}, {"k": "res", "no": 11, "at": null, "b": "あかんすよ"}, {"k": "cm", "no": 1, "at": null, "b": "普通に窃盗で草"}, {"k": "cm", "no": 2, "at": null, "b": "時事通信らしいじゃんと思ってる"}, {"k": "cm", "no": 3, "at": null, "b": "売れた分だけでも54個っておい  収集してるときによくバレなかったな"}, {"k": "cm", "no": 4, "at": null, "b": "野球の球なんか重くてかさばるし、もろもろ込だと3万くらいしか手元に残らんやろ  それを毎回バレないように盗んで持ち帰ってを繰り返してとか、さすがは報道の仕事だけあって地道な活動がお得意やなぁ…"}, {"k": "cm", "no": 6, "at": null, "b": "厳正に対処すると言っても減給とか勤務停止とか書かれていないあたり若手すぎて締め上げるとすぐに生活が成り立たなくなるとかそういう話なんかな"}, {"k": "cm", "no": 7, "at": null, "b": "昔NPBの審判が公式球パクってフリマに出品してたのなかった？やたら某フリマに未使用球出品している人いたんだけど、報道後パタリと止まった"}, {"k": "cm", "no": 8, "at": null, "b": "支持率下げてやるでお馴染み時事通信か  自分の品性のが下がってるじゃん"}, {"k": "cm", "no": 9, "at": null, "b": ">>2  そもそもそこいつら底辺メディアでしかないのにデカい面し過ぎ  平気で虚偽記事書くし出禁でいい"}, {"k": "cm", "no": 10, "at": null, "b": "泥棒ではした金稼ぎなんて惨めだな"}, {"k": "cm", "no": 11, "at": null, "b": "盗品転売して支持率下げてやる！"}, {"k": "cm", "no": 12, "at": null, "b": "まあここならやるだろうとという信頼感はあった"}, {"k": "cm", "no": 13, "at": null, "b": "高々一個数百円のものを転売目的で拾い集めるとかやる事がセコすぎだろ  どんだけ金無いんだよ"}, {"k": "cm", "no": 14, "at": null, "b": "きちんと窃盗で起訴しないとな"}]}, {"id": "t28f4a0e310", "team": "海外日本人選手", "lg": "etc", "rel": "", "cat": "ポスティング・MLB移籍", "st": "報道ベース", "h": "鈴木誠也、FA外野手ランキング1位　米誌が最大5年237.6億円を予想", "tag": "", "news": "ベースボール・アメリカが4年1億2500万ドルまたは5年1億5000万ドルと予想", "links": [], "src": {"n": "なんJ PRIDE", "u": "https://nanjpride.blog.jp/archives/5719980.html"}, "note": "画像のみのレス1件と末尾のリンク集は本文がないため除外。それ以外は全件掲載", "isNew": false, "posts": [{"k": "res", "no": 1, "at": null, "b": "がFA外野手ランキング1位　米専門誌が最大5年総額237.6億円の大型契約を予想 https://news.yahoo.co.jp/articles/12b4425e3042756e56681406d062b1d3c1739bce"}, {"k": "res", "no": 2, "at": null, "b": "＞米野球専門誌「ベースボール・アメリカ」は4日（日本時間5日）、今オフのフリーエージェント（FA）市場における両翼外野手のランキングを発表し、カブスからFAとなる鈴木誠也外野手（32）を1位に選出した。"}, {"k": "res", "no": 14, "at": null, "b": ">>3 これほんとすき"}, {"k": "res", "no": 18, "at": null, "b": "今見てもおもろい"}, {"k": "res", "no": 9, "at": null, "b": "10年間さんで三億ドルとか普通にオールスター級やんけ"}, {"k": "res", "no": 11, "at": null, "b": "ちゃんと毎年最終的な数字は一流だしね 波が激しすぎるのと怪我しやすいのが欠点"}, {"k": "res", "no": 24, "at": null, "b": ">>11 ケガのしやすさに関しては平均的野手ってイメージ"}, {"k": "res", "no": 12, "at": null, "b": "ちゃんと日本の三冠王やったな 佐藤はどうなることやら"}, {"k": "res", "no": 16, "at": null, "b": "サービスタイム10年を狙うならAAV下がってでも5年契約ほしいよな"}, {"k": "res", "no": 17, "at": null, "b": "OPS芸人としての立場をMLBでも確立したんか"}, {"k": "res", "no": 20, "at": null, "b": "カブス行ってからも毎年成績上げてるからな 誠也くんには金持ちになってほしい"}, {"k": "res", "no": 21, "at": null, "b": "平均で見ればシュワーバークラスの打者やろ 頼む誠也フィリーズに来てくれあったけえ街とチームがお前を待っている"}, {"k": "res", "no": 22, "at": null, "b": "誠也の嫁さんがトロントに居る写真上げてたらしいな"}, {"k": "cm", "no": 1, "at": null, "b": "広島なら10年23億って所か"}, {"k": "cm", "no": 2, "at": null, "b": "サッカーみたいにカープに育成金入る仕組みならなぁ〜"}, {"k": "cm", "no": 3, "at": null, "b": "アイツと違って人格者だからな"}, {"k": "cm", "no": 4, "at": null, "b": "将来カープ買えるやろ"}, {"k": "cm", "no": 5, "at": null, "b": "父親が「学校の勉強なんかいいからお前は野球をやれ」って言ったエピソード ドラフト当時はアホな親だと思ったけれど、こうなってくると先見の明が凄すぎる。 結果論かもしれんが、歴代日本人野球選手で10指に入りうる男に宿題させたらみんな不幸…"}, {"k": "cm", "no": 6, "at": null, "b": ">>5 片鱗が表れてる時なら優先順位は確かに野球だろうな"}, {"k": "cm", "no": 7, "at": null, "b": "もう広島買えるやん"}]}, {"id": "t390b1f4421", "team": "海外日本人選手", "lg": "etc", "rel": "", "cat": "その他", "st": "報道ベース", "h": "シルバースラッガー賞の最終候補に大谷翔平と鈴木誠也", "tag": "", "news": "岡本・村上は落選", "links": [{"n": "Full-Count", "u": "https://full-count.jp/2026/11/05/post2041068/"}], "src": {"n": "ボールパーク速報（海外の反応）", "u": "https://www.ballparksokuhou.com/blog-entry-2677.html"}, "note": "前回（11/07 00:54）取得分の和訳レス7件。全32件のうち前回取得できたのはこの7件", "isNew": false, "posts": [{"k": "res", "no": null, "at": null, "b": "二人とも選ばれないだろ。"}, {"k": "res", "no": null, "at": null, "b": "野球は最近見始めたばかりなんだけど、この賞は何を見て決めるの？ バーレソンはMLBの打点王なんだから、一塁手部門は当確じゃないのか？"}, {"k": "res", "no": null, "at": null, "b": "ハーパーはオルソンよりも、そしておそらくバーレソンよりも、打撃面で良い年だった。ひどい見落としだ。"}, {"k": "res", "no": null, "at": null, "b": "彼が受賞するとは思わない。ホームランはシュワーバーのほうが多いけど、wRC+は大谷のほうが高いし、投票者からの好感度も全般的に大谷のほうが高い。"}, {"k": "res", "no": null, "at": null, "b": "大谷の今年が大きな不振の年だったという見方が影響するのか、シュワーバーの普通の年と比べて実際にどの程度響くのか、すごく興味がある。"}, {"k": "res", "no": null, "at": null, "b": "一塁手：バウアーズ。二塁手：五分五分、ホームランの数を考えるとロウに傾いている。三塁手：五分五分、マンシーに傾いている。遊撃手：デ・ラ・クルーズ。外野手：クロウ=アームストロング、ウッド、タティス(鈴木との五分五分)。捕手：モレノ。DH：大谷。ユーティリティ：バウアーズ。"}, {"k": "res", "no": null, "at": null, "b": "最初の一塁手がバウアーズ、外野手が鈴木、ユーティリティがタティスのほうが、オルソンが受賞するよりいいと思う。"}]}]};
 const TEAMS = [
-  {name:"巨人",emoji:"🟠",league:"セ・リーグ"},{name:"阪神",emoji:"🐯",league:"セ・リーグ"},
-  {name:"DeNA",emoji:"⭐",league:"セ・リーグ"},{name:"広島",emoji:"🎏",league:"セ・リーグ"},
-  {name:"ヤクルト",emoji:"🐧",league:"セ・リーグ"},{name:"中日",emoji:"🐉",league:"セ・リーグ"},
-  {name:"ソフトバンク",emoji:"🦅",league:"パ・リーグ"},{name:"日本ハム",emoji:"🦊",league:"パ・リーグ"},
-  {name:"ロッテ",emoji:"⚓",league:"パ・リーグ"},{name:"楽天",emoji:"🦅",league:"パ・リーグ"},
-  {name:"オリックス",emoji:"🐃",league:"パ・リーグ"},{name:"西武",emoji:"🦁",league:"パ・リーグ"},
-  {name:"球界総合",emoji:"🏟️",league:"球界総合・海外"},{name:"海外日本人",emoji:"✈️",league:"球界総合・海外"}
+  ["all","すべて"],["new","新着"],["se","セ・リーグ"],["pa","パ・リーグ"],
+  ["DeNA"],["ヤクルト"],["巨人"],["阪神"],["広島"],["中日"],
+  ["西武"],["ソフトバンク"],["日本ハム"],["ロッテ"],["楽天"],["オリックス"],
+  ["球界総合"],["海外日本人選手","海外"]
 ];
-const TEAM_ALIAS = {"日ハム":"日本ハム","SB":"ソフトバンク","ソフトバンクホークス":"ソフトバンク","オリ":"オリックス","横浜":"DeNA","ＤｅＮＡ":"DeNA","MLB":"海外日本人","海外":"海外日本人","総合":"球界総合"};
-const STATUSES = ["公式","報道ベース","噂レベル","ネタ"];
+const BLOCK = "AIでのデータ取得を許可されていないサイトです。元記事を参照してください。";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let team = "all", seg = "res";
+try { team = localStorage.getItem("npb-team") || "all"; } catch(e) {}
 
-// ?sheet=スプレッドシートID で別のシートを読み込めます
-const BASE_SHEET_ID = new URLSearchParams(location.search).get("sheet") || CONFIG.SHEET_ID;
-const state = { sheetId: BASE_SHEET_ID, data: null, team: "", status: "", cat: "", q: "", period: 168, view: "team", shown: CONFIG.PAGE_SIZE };
-
-/* ===== 保存（閲覧者ごとの表示設定だけ） ===== */
-const PREF_KEY = "npb-report-prefs";
-try { Object.assign(state, JSON.parse(localStorage.getItem(PREF_KEY) || "{}")); } catch (e) {}
-function savePrefs(){ try { localStorage.setItem(PREF_KEY, JSON.stringify({team:state.team,status:state.status,period:state.period,view:state.view})); } catch (e) {} }
-
-/* ===== データ取得（Google Sheets gviz JSONP） ===== */
-const cache = {};
-let cbn = 0;
-function gvizCell(cell){
-  if (cell == null || cell.v == null) return "";
-  const v = cell.v;
-  // 日付・日時セルは "Date(2026,10,6,18,26,0)"（月は0始まり）で返るので文字列に直す
-  if (typeof v === "string"){
-    const m = v.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+)(?:,(\d+))?)?\)$/);
-    if (m){
-      const p = n => String(n).padStart(2, "0");
-      return m[4] != null ? `${m[1]}-${p(+m[2]+1)}-${p(m[3])} ${p(m[4])}:${p(m[5])}` : `${m[1]}-${p(+m[2]+1)}-${p(m[3])}`;
-    }
-    return v.trim();
-  }
-  return String(v);
+function match(t, key){
+  if (key === "all") return true;
+  if (key === "new") return t.isNew;
+  if (key === "se" || key === "pa") return t.lg === key;
+  return t.team === key || (t.rel || "").split("/").includes(key);
 }
-function gviz(book, sheet, tq, fresh){
-  const key = book + "|" + sheet + "|" + tq;
-  if (!fresh && cache[key]) return Promise.resolve(cache[key]);
-  return new Promise((resolve, reject) => {
-    const name = "__gv" + (++cbn);
-    const s = document.createElement("script");
-    const timer = setTimeout(() => { cleanup(); reject(new Error("timeout")); }, 15000);
-    function cleanup(){ clearTimeout(timer); delete window[name]; s.remove(); }
-    window[name] = (res) => {
-      cleanup();
-      if (res.status === "error") return reject(new Error((res.errors || []).map(e => e.detailed_message || e.message).join(" ")));
-      const cols = res.table.cols.map(c => c.label || c.id);
-      const rows = res.table.rows.map(r => {
-        const o = {}; cols.forEach((c, i) => { o[c] = gvizCell(r.c[i]); }); return o;
-      }).filter(o => Object.values(o).some(v => v !== ""));
-      cache[key] = rows; resolve(rows);
-    };
-    s.onerror = () => { cleanup(); reject(new Error("network")); };
-    s.src = `https://docs.google.com/spreadsheets/d/${book}/gviz/tq?headers=1&sheet=${encodeURIComponent(sheet)}`
-          + `&tqx=responseHandler:${name}&tq=${encodeURIComponent(tq || "select *")}`;
-    document.head.appendChild(s);
-  });
+const youbi = ["日","月","火","水","木","金","土"];
+function fmtDate(at){
+  if (!at) return '<span class="dt">日時不明</span>';
+  const m = at.match(/^(\d{4})\/(\d{2})\/(\d{2}) (\d{2}:\d{2}(?::\d{2})?)$/);
+  if (!m) return `<span class="dt">${esc(at)}</span>`;
+  const d = new Date(+m[1], +m[2]-1, +m[3]);
+  return `<span class="dt">${m[1]}/${m[2]}/${m[3]}(${youbi[d.getDay()]}) ${m[4]}</span>`;
 }
-async function fetchTab(id, tab, optional, fresh){
-  try {
-    return await gviz(id, tab, "select *", fresh);
-  } catch (e) {
-    if (optional) return [];
-    throw new Error(`「${tab}」タブを読み込めませんでした（${e.message}）`);
-  }
+function bodyHtml(b, group){
+  return esc(b).replace(/&gt;&gt;(\d{1,4})/g, (s, n) => `<button class="anc" data-to="${group}-${n}">&gt;&gt;${n}</button>`);
 }
-let freshNext = false;
-async function load(){
-  const fresh = freshNext; freshNext = false;
-  const main = document.getElementById("main");
-  main.innerHTML = `<p class="state">スプレッドシートからデータを読み込んでいます…</p>`;
-  document.getElementById("updated").textContent = "読み込み中…";
-  try {
-    const id = state.sheetId;
-    const [topics, sources, comments, meta, archives] = await Promise.all([
-      fetchTab(id, CONFIG.TABS.topics, false, fresh),
-      fetchTab(id, CONFIG.TABS.sources, true, fresh),
-      fetchTab(id, CONFIG.TABS.comments, true, fresh),
-      fetchTab(id, CONFIG.TABS.meta, true, fresh),
-      fetchTab(BASE_SHEET_ID, CONFIG.TABS.archives, true, fresh)
-    ]);
-    state.data = prepare(topics, sources, comments, meta, archives);
-    state.shown = CONFIG.PAGE_SIZE;
-    buildControls();
-    render();
-  } catch (e) {
-    main.innerHTML = `<div class="state err"><p><b>データを読み込めませんでした。</b></p><p>${esc(e.message)}</p>
-      <p>スプレッドシートの共有設定が「リンクを知っている全員（閲覧者）」になっているか確認してから、「更新」を押してください。</p></div>`;
-    document.getElementById("updated").textContent = "読み込みエラー";
-  }
+function newsHtml(t){
+  const links = t.links.map(l => `<a href="${esc(l.u)}" target="_blank" rel="noopener">${esc(l.n)}</a>`).join("、");
+  let text = esc(t.news);
+  if (text.includes(BLOCK)) text = text.replace(esc(BLOCK), `<strong>${esc(BLOCK)}</strong>`);
+  return text + (links ? `（${links}）` : "");
 }
-
-/* ===== 整形 ===== */
-function normTeam(t){ t = (t || "").trim(); return TEAM_ALIAS[t] || t; }
-function parseTime(s){
-  if (!s) return null;
-  let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);
-  if (m) return new Date(`${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}T${(m[4]||"0").padStart(2,"0")}:${m[5]||"00"}:00+09:00`);
-  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?/);
-  if (m) return new Date(`${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}T${(m[4]||"0").padStart(2,"0")}:${m[5]||"00"}:00+09:00`);
-  const d = new Date(s); return isNaN(d) ? null : d;
+function row(t){
+  const nres = t.posts.filter(p => p.k==="res").length, ncm = t.posts.length - nres;
+  const cnt = t.posts.length ? `${nres ? "レス"+nres : ""}${nres&&ncm ? " / " : ""}${ncm ? "コメ"+ncm : ""}` : "見出しのみ";
+  return `<a class="row" href="#topic-${t.id}">
+    <span class="chip" data-t="${esc(t.team)}">${esc(t.team === "海外日本人選手" ? "海外" : t.team)}</span>
+    <span class="h">${t.isNew ? '<span class="new">NEW</span>' : ""}${esc(t.h)}${t.tag ? `<span class="tag">${esc(t.tag)}</span>` : ""}</span>
+    <span class="meta"><span class="cnt">${cnt}</span><span>${esc(t.cat)}</span><span>${esc(t.st)}</span>${t.src ? `<span>${esc(t.src.n)}</span>` : ""}</span>
+  </a>`;
 }
-function fmt(d){
-  if (!d) return "";
-  const p = new Intl.DateTimeFormat("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(d);
-  const g = t => p.find(x => x.type === t)?.value || "";
-  return `${g("month")}/${g("day")} ${g("hour")}:${g("minute")}`;
+function renderList(){
+  const shown = DATA.topics.filter(t => match(t, team));
+  const btn = ([k, label]) => {
+    const n = DATA.topics.filter(t => match(t, k)).length;
+    return `<button class="tab" data-team="${esc(k)}"${label || k==="球界総合" ? "" : ` data-t="${esc(k)}"`} aria-pressed="${k===team}">${esc(label || k)}<span class="n">${n}</span></button>`;
+  };
+  const grp = (lb, arr) => `<div class="trow"><span class="lb">${lb}</span><div class="bs">${arr.map(btn).join("")}</div></div>`;
+  const tabs = grp("全体", [...TEAMS.slice(0,4), ...TEAMS.slice(16)]) + grp("セ", TEAMS.slice(4,10)) + grp("パ", TEAMS.slice(10,16));
+  const main = DATA.main.map(id => DATA.topics.find(t => t.id === id)).filter(Boolean);
+  document.getElementById("app").innerHTML = `
+    <header class="bar"><div class="wrap"><h1>⚾ NPBレポート</h1><time datetime="${esc(DATA.iso)}">${esc(DATA.stamp)} 更新</time></div></header>
+    <nav class="tabs" aria-label="球団で絞り込む"><div class="wrap" id="tabrow">${tabs}</div></nav>
+    <main class="wrap stack">
+      ${team === "all" ? `<section><h2>今日の主なトピック</h2><div class="list">${main.map(row).join("")}</div></section>` : ""}
+      <section><h2>${esc((TEAMS.find(x=>x[0]===team)||[])[1] || team)}の話題 ${shown.length}件</h2>
+        <div class="list">${shown.length ? shown.map(row).join("") : '<p class="empty">この枠の話題は今回ありません。</p>'}</div></section>
+      <p class="foot">巡回できなかったサイト：${esc(DATA.unreach)}</p>
+    </main>`;
+  document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => {
+    team = b.dataset.team; try { localStorage.setItem("npb-team", team); } catch(e) {}
+    const y = window.scrollY; renderList(); window.scrollTo(0, y);
+  }));
 }
-function prepare(topics, sources, comments, meta, archives){
-  const srcBy = {}, comBy = {};
-  sources.forEach(s => (srcBy[s.topic_id] ||= []).push(s));
-  comments.forEach(c => (comBy[c.topic_id] ||= []).push(c));
-  const list = topics.filter(t => t.id && t.headline).map(t => {
-    const team = normTeam(t.team);
-    const related = (t.related_teams || "").split(/[\/／,、]/).map(normTeam).filter(Boolean);
-    const updated = parseTime(t.last_updated) || parseTime(t.first_date);
-    const srcs = (srcBy[t.id] || []).slice().sort((a,b) => (parseTime(b.posted_at)||0) - (parseTime(a.posted_at)||0));
-    const coms = comBy[t.id] || [];
-    const text = [t.headline, t.summary, t.sites, team, related.join(" "), coms.map(c => c.excerpt).join(" ")].join(" ").toLowerCase();
-    return { ...t, team, related, updated, srcs, coms, text };
-  }).sort((a,b) => (b.updated||0) - (a.updated||0));
-  const m = {}; const unreachable = [];
-  meta.forEach(r => { if (r.key === "unreachable") unreachable.push(r.value); else if (r.key) m[r.key] = r.value; });
-  return { topics: list, meta: m, unreachable, archives: archives.filter(a => a.spreadsheet_id) };
+function renderThread(t){
+  const res = t.posts.filter(p => p.k==="res"), cm = t.posts.filter(p => p.k==="cm");
+  if (seg === "res" && !res.length) seg = "cm";
+  if (seg === "cm" && !cm.length) seg = "res";
+  const list = seg === "res" ? res : cm;
+  const name = seg === "res" ? "転載レス" : "コメント欄";
+  const posts = list.map((p, i) => `<div class="post" id="${seg}-${p.no ?? "x"+i}">
+      <div class="ph"><span class="no">${p.no ?? "—"}</span><span class="nm">${name}</span>${fmtDate(p.at)}</div>
+      <div class="pb">${bodyHtml(p.b, seg)}</div></div>`).join("");
+  document.getElementById("app").innerHTML = `
+    <header class="bar"><div class="wrap"><button class="back" id="back">← 一覧</button><span class="ttl">${esc(t.team === "海外日本人選手" ? "海外" : t.team)}</span><time datetime="${esc(DATA.iso)}">${esc(DATA.stamp)}</time></div></header>
+    <main class="wrap stack">
+      <div class="thead">
+        <div class="kv"><span class="chip" data-t="${esc(t.team)}">${esc(t.team)}</span><span>${esc(t.cat)}</span><span>${esc(t.st)}</span>${t.rel ? `<span>関連：${esc(t.rel)}</span>` : ""}</div>
+        <h3>${esc(t.h)}${t.tag ? `<span class="tag">${esc(t.tag)}</span>` : ""}</h3>
+      </div>
+      <div class="box"><span class="lbl">NEWS</span><div>${newsHtml(t)}</div>
+        ${t.src ? `<span class="lbl">まとめ記事</span><div><a href="${esc(t.src.u)}" target="_blank" rel="noopener">${esc(t.src.n)}</a></div>` : ""}
+        ${t.note ? `<p class="note">${esc(t.note)}</p>` : ""}</div>
+      ${t.posts.length ? `
+        <div class="seg" role="group" aria-label="表示するコメント">
+          ${res.length ? `<button data-seg="res" aria-pressed="${seg==="res"}">転載レス ${res.length}</button>` : ""}
+          ${cm.length ? `<button data-seg="cm" aria-pressed="${seg==="cm"}">コメント欄 ${cm.length}</button>` : ""}
+        </div>
+        <div class="board">${posts}</div>` : '<p class="note">この話題はレスを取得していません（見出しのみ）。</p>'}
+    </main>`;
+  document.getElementById("back").addEventListener("click", () => { location.hash = ""; });
+  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => { seg = b.dataset.seg; renderThread(t); }));
+  document.querySelectorAll(".anc").forEach(b => b.addEventListener("click", () => {
+    const el = document.getElementById(b.dataset.to);
+    if (!el) { b.title = "参照先のレスは取得範囲外です"; return; }
+    el.scrollIntoView({block:"center"}); el.classList.add("hl"); setTimeout(() => el.classList.remove("hl"), 1400);
+  }));
 }
-
-/* ===== 操作部 ===== */
-function buildControls(){
-  const d = state.data;
-  const teamCounts = {};
-  d.topics.forEach(t => [t.team, ...t.related].forEach(n => teamCounts[n] = (teamCounts[n]||0) + 1));
-  const tc = document.getElementById("teamChips");
-  tc.innerHTML = [`<button class="chip" type="button" data-team="" aria-pressed="${!state.team}">すべて</button>`]
-    .concat(TEAMS.map(t => `<button class="chip" type="button" data-team="${esc(t.name)}" aria-pressed="${state.team===t.name}">${t.emoji} ${esc(t.name)}</button>`)).join("");
-  const sc = document.getElementById("statusChips");
-  sc.innerHTML = [`<button class="chip" type="button" data-status="" aria-pressed="${!state.status}">確度：すべて</button>`]
-    .concat(STATUSES.map(s => `<button class="chip" type="button" data-status="${s}" aria-pressed="${state.status===s}">${s}</button>`)).join("");
-  const cats = [...new Set(d.topics.map(t => t.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ja"));
-  const cs = document.getElementById("cat");
-  cs.innerHTML = `<option value="">すべてのカテゴリ</option>` + cats.map(c => `<option${c===state.cat?" selected":""}>${esc(c)}</option>`).join("");
-  document.querySelectorAll("#period button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.p === state.period)));
-  document.querySelectorAll("#view button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === state.view)));
-  const ms = document.getElementById("month");
-  if (d.archives.length){
-    ms.hidden = false;
-    ms.innerHTML = `<option value="${esc(BASE_SHEET_ID)}">最新</option>` +
-      d.archives.slice().sort((a,b)=>b.month.localeCompare(a.month)).map(a => `<option value="${esc(a.spreadsheet_id)}"${a.spreadsheet_id===state.sheetId?" selected":""}>${esc(a.month)}</option>`).join("");
-  } else ms.hidden = true;
-  const up = parseTime(d.meta.updated_at);
-  document.getElementById("updated").textContent = up ? `${fmt(up)} 更新` : "更新日時不明";
+let listY = 0;
+function route(){
+  const m = location.hash.match(/^#topic-(t[0-9a-z]+)$/);
+  const t = m && DATA.topics.find(x => x.id === m[1]);
+  if (t) { seg = "res"; renderThread(t); window.scrollTo(0, 0); }
+  else { renderList(); window.scrollTo(0, listY); }
 }
-document.addEventListener("click", e => {
-  const b = e.target.closest("button"); if (!b) return;
-  if (b.dataset.team !== undefined){ state.team = b.dataset.team; }
-  else if (b.dataset.status !== undefined){ state.status = b.dataset.status; }
-  else if (b.dataset.p !== undefined){ state.period = +b.dataset.p; }
-  else if (b.dataset.v !== undefined){ state.view = b.dataset.v; }
-  else if (b.id === "reload"){ freshNext = true; load(); return; }
-  else if (b.id === "more"){ state.shown += CONFIG.PAGE_SIZE; render(); return; }
-  else return;
-  state.shown = CONFIG.PAGE_SIZE; savePrefs(); syncPressed(); render();
-});
-function syncPressed(){
-  document.querySelectorAll("#teamChips .chip").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.team === state.team)));
-  document.querySelectorAll("#statusChips .chip").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.status === state.status)));
-  document.querySelectorAll("#period button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.p === state.period)));
-  document.querySelectorAll("#view button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === state.view)));
-}
-let qTimer;
-document.getElementById("q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value.trim().toLowerCase(); state.shown = CONFIG.PAGE_SIZE; render(); }, 200); });
-document.getElementById("cat").addEventListener("change", e => { state.cat = e.target.value; state.shown = CONFIG.PAGE_SIZE; render(); });
-document.getElementById("month").addEventListener("change", e => { state.sheetId = e.target.value; load(); });
-
-/* ===== 描画 ===== */
-function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function safeUrl(u){ return /^https?:\/\//i.test(u || "") ? u : ""; }
-function teamInfo(n){ return TEAMS.find(t => t.name === n) || {name:n||"その他",emoji:"⚾",league:"球界総合・海外"}; }
-// 球団の絞り込みは「主役の球団」だけで判定する（related_teams だけ一致する話題は別枠に出す）
-function filtered(relatedOnly){
-  const now = Date.now();
-  return state.data.topics.filter(t => {
-    if (state.team){
-      if (relatedOnly){ if (t.team === state.team || !t.related.includes(state.team)) return false; }
-      else if (t.team !== state.team) return false;
-    } else if (relatedOnly) return false;
-    if (state.status && t.status !== state.status) return false;
-    if (state.cat && t.category !== state.cat) return false;
-    if (state.period && (!t.updated || now - t.updated > state.period * 3600e3)) return false;
-    if (state.q && !t.text.includes(state.q)) return false;
-    return true;
-  });
-}
-function topicHTML(t){
-  const ti = teamInfo(t.team);
-  const isNew = t.updated && Date.now() - t.updated < CONFIG.NEW_HOURS * 3600e3;
-  const resItems = t.coms.map(c => {
-    const ex = c.excerpt || "";
-    const point = c.point ? `<span class="r-point">${esc(c.point)}</span>` : "";
-    const meta = [c.tone, c.kind, c.sites].filter(Boolean).map(esc).join(" ・ ");
-    const link = safeUrl(c.url) ? ` <a href="${esc(c.url)}" target="_blank" rel="noopener">元記事</a>` : "";
-    if (!ex && !point) return "";
-    return `<li>${ex ? esc(ex) : ""}${point}<span class="r-meta">${meta}${link}</span></li>`;
-  }).filter(Boolean).join("");
-  const srcItems = t.srcs.map(s => {
-    const u = safeUrl(s.url);
-    const title = u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(s.title || u)}</a>` : esc(s.title);
-    const when = parseTime(s.posted_at);
-    return `<li>${title}<span class="s-site">${esc(s.site)}${when ? " ・ " + fmt(when) : ""}${String(s.retrieved).toUpperCase()==="TRUE" ? " ・ 本文確認済み" : ""}</span></li>`;
-  }).join("");
-  const nCom = t.coms.length || +t.n_comments || 0;
-  return `<details class="topic">
-    <summary>
-      <div class="t-meta"><span class="team">${ti.emoji} ${esc(ti.name)}</span>
-        ${t.status ? `<span class="pill st-${esc(t.status)}">${esc(t.status)}</span>` : ""}
-        ${t.category ? `<span class="pill cat">${esc(t.category)}</span>` : ""}
-        ${isNew ? `<span class="pill new">新着</span>` : ""}</div>
-      <p class="t-head">${esc(t.headline)}</p>
-      ${t.summary ? `<p class="t-sum">${esc(t.summary)}</p>` : ""}
-      <div class="t-foot"><span>${fmt(t.updated)}</span><span>${+t.n_sites || t.srcs.length || 0}サイト</span><span>レス ${nCom}</span>
-        ${t.related.length ? `<span>関連：${esc(t.related.join("・"))}</span>` : ""}<span class="more">反応と出典</span></div>
-    </summary>
-    <div class="t-body">
-      <div><h4>反応（転載レス・原文）</h4>${resItems ? `<ul class="res">${resItems}</ul>` : noResHTML(t)}</div>
-      <div><h4>出典</h4>${srcItems ? `<ul class="src">${srcItems}</ul>` : `<p class="quiet">${esc(t.sites || "出典の記録なし")}</p>`}</div>
-    </div>
-  </details>`;
-}
-function noResHTML(t){
-  const first = t.srcs.find(s => safeUrl(s.url));
-  const link = first ? ` <a href="${esc(first.url)}" target="_blank" rel="noopener">元記事を開く</a>` : "";
-  const blocked = t.srcs.length && t.srcs.every(s => String(s.retrieved).toUpperCase() !== "TRUE");
-  return `<p class="quiet">${blocked ? "レス未取得（本文を開けないサイトのため見出しのみ記録）。" : "レス未取得。"}${link}</p>`;
-}
-function render(){
-  const d = state.data, main = document.getElementById("main");
-  const list = filtered(false);
-  const relList = filtered(true);
-  const now = Date.now();
-  const scope = d.topics.filter(t => !state.team || t.team === state.team);
-  const recent = scope.filter(t => t.updated && now - t.updated < CONFIG.NEW_HOURS * 3600e3);
-  const day = scope.filter(t => t.updated && now - t.updated < 24 * 3600e3);
-  const key = scope.filter(t => t.updated && now - t.updated < 24 * 3600e3)
-    .sort((a,b) => ((+b.n_sites||0)*2 + (+b.n_comments||b.coms.length||0)) - ((+a.n_sites||0)*2 + (+a.n_comments||a.coms.length||0))).slice(0,5);
-  let html = `<section><div class="stats"><span><b>${list.length}</b>件を表示</span><span><b>${recent.length}</b>件が直近${CONFIG.NEW_HOURS}時間</span><span><b>${day.length}</b>件が24時間以内</span>${d.meta.coverage ? `<span>収録期間 ${esc(d.meta.coverage)}</span>` : ""}</div></section>`;
-  html += `<section><h2>🆕 直近${CONFIG.NEW_HOURS}時間</h2><div class="panel">${recent.length ? `<ul>${recent.map(t => `<li>【${esc(t.team)}】${esc(t.headline)}</li>`).join("")}</ul>` : `<p class="quiet">目立った新着なし</p>`}</div></section>`;
-  if (key.length) html += `<section><h2>📋 今日の主なトピック</h2><div class="panel"><ul>${key.map(t => `<li>【${esc(t.team)}】${esc(t.headline)}</li>`).join("")}</ul></div></section>`;
-
-  if (!list.length){
-    html += `<p class="state">条件に合うトピックはありません。期間を「全期間」にするか、絞り込みを外してください。</p>`;
-  } else if (state.view === "team"){
-    let league = "";
-    TEAMS.concat(teamsOutside(list)).forEach(ti => {
-      const items = list.filter(t => t.team === ti.name);
-      if (!items.length) return;
-      if (ti.league !== league){ league = ti.league; html += `<div class="league">${esc(league)}</div>`; }
-      html += `<section class="group"><h3>${ti.emoji} ${esc(ti.name)}<span class="count">${items.length}</span></h3>${items.map(topicHTML).join("")}</section>`;
-    });
-  } else {
-    html += `<section class="group">${list.slice(0, state.shown).map(topicHTML).join("")}</section>`;
-    if (list.length > state.shown) html += `<button class="btn loadmore" id="more" type="button">さらに表示（残り${list.length - state.shown}件）</button>`;
-  }
-  if (relList.length){
-    html += `<details class="related"><summary>${esc(state.team)}が関連する他球団の話題（${relList.length}件）</summary><div class="group">${relList.map(topicHTML).join("")}</div></details>`;
-  }
-  html += `<footer><p>データ：<a href="https://docs.google.com/spreadsheets/d/${esc(state.sheetId)}/edit" target="_blank" rel="noopener">NPB掲示板データ</a>（定期実行で追記）</p>
-    ${d.unreachable.length ? `<details><summary>巡回できなかったサイト（${d.unreachable.length}件）</summary><ul>${d.unreachable.slice(-15).reverse().map(u => `<li>${esc(u)}</li>`).join("")}</ul></details>` : ""}</footer>`;
-  main.innerHTML = html;
-}
-function teamsOutside(list){
-  const known = new Set(TEAMS.map(t => t.name));
-  return [...new Set(list.map(t => t.team).filter(n => !known.has(n)))].map(n => ({name:n||"その他",emoji:"⚾",league:"球界総合・海外"}));
-}
-
-load();
+window.addEventListener("hashchange", route);
+document.addEventListener("click", e => { if (e.target.closest(".row")) listY = window.scrollY; });
+route();
 </script>
-</body>
-</html>
+
+</body></html>
