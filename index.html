@@ -1,4 +1,3 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>NPBレポート</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -164,7 +163,7 @@ function renderList(){
     <header class="bar"><div class="wrap"><h1>⚾ NPBレポート</h1><time datetime="${esc(DATA.iso)}">${esc(DATA.stamp)} 更新</time></div></header>
     <nav class="tabs" aria-label="球団で絞り込む"><div class="wrap" id="tabrow">${tabs}</div></nav>
     <main class="wrap stack">
-      ${team === "all" ? `<section><h2>今日の主なトピック</h2><div class="list">${main.map(row).join("")}</div></section>` : ""}
+      ${team === "all" && main.length ? `<section><h2>今日の主なトピック</h2><div class="list">${main.map(row).join("")}</div></section>` : ""}
       <section><h2>${esc((TEAMS.find(x=>x[0]===team)||[])[1] || team)}の話題 ${shown.length}件</h2>
         <div class="list">${shown.length ? shown.map(row).join("") : '<p class="empty">この枠の話題はまだありません。</p>'}</div></section>
       <p class="foot">巡回できなかったサイト：${esc(DATA.unreach)}<br>元データ：<a href="${SHEET_URL}" target="_blank" rel="noopener">スプレッドシート「NPB掲示板データ」</a>（ページを開くたびに読み込み）</p>
@@ -281,22 +280,63 @@ function errorText(e){
       return ["スプレッドシートを読み込めませんでした。" + esc((e && e.code) || ""), "もう一度読み込む"];
   }
 }
-let mcpP = null;
-async function load(){
-  shell("スプレッドシートから読み込み中…");
-  mcpP ||= (window.claude && window.claude.use) ? window.claude.use("mcp") : Promise.resolve(null);
-  const mcp = await mcpP;
-  if (!mcp) { shell("この表示ではスプレッドシートを読み込めません。claude.ai 上でこのページを開いてください。"); return; }
+/* claude.ai 上ではコネクタ経由、GitHub Pages など外部ではGoogleの公開読み取り（gviz）で読む */
+function gviz(sheet){
+  return new Promise((resolve, reject) => {
+    const cb = "__gv" + Math.random().toString(36).slice(2);
+    const sc = document.createElement("script");
+    const timer = setTimeout(() => { cleanup(); reject({code: "timeout"}); }, 20000);
+    function cleanup(){ clearTimeout(timer); delete window[cb]; sc.remove(); }
+    window[cb] = resp => {
+      cleanup();
+      if (!resp || resp.status === "error") { reject({code: "gviz_error", message: ((resp && resp.errors) || []).map(e => e.detailed_message || e.message).join(" ")}); return; }
+      const t = resp.table;
+      const head = t.cols.map(c => c.label || c.id);
+      const rows = t.rows.map(r => t.cols.map((c, i) => {
+        const cell = r.c[i]; if (!cell) return "";
+        if (cell.f != null && c.type !== "string") return String(cell.f);
+        return cell.v == null ? "" : String(cell.v);
+      }));
+      resolve([head, ...rows]);
+    };
+    sc.onerror = () => { cleanup(); reject({code: "network"}); };
+    sc.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?headers=1&sheet=${encodeURIComponent(sheet)}&tqx=out:json;responseHandler:${cb}`;
+    document.head.appendChild(sc);
+  });
+}
+async function viaGviz(){
+  try { return await Promise.all(["topics", "sources", "comments", "meta"].map(gviz)); }
+  catch (e) {
+    shell(e.code === "gviz_error"
+      ? "スプレッドシートを読み取れませんでした（" + esc(e.message || "") + "）。シートの共有が「リンクを知っている全員（閲覧者）」になっているか確認してください。"
+      : "スプレッドシートに接続できませんでした。共有設定が「リンクを知っている全員（閲覧者）」になっているか、ネットワークを確認してください。", "もう一度読み込む");
+    return null;
+  }
+}
+async function viaMcp(mcp){
   const get = range => mcp.callTool("Google Sheets", "get_values", {spreadsheetId: SHEET_ID, range}, {cache: false}).then(valuesOf);
   const all = () => Promise.all(["topics!A:O", "sources!A:F", "comments!A:I", "meta!A:B"].map(get));
-  let v;
-  try { v = await all(); }
+  try { return await all(); }
   catch (e) {
     if (e && e.retryable) {
       await new Promise(r => setTimeout(r, Math.min(e.retryAfterMs || 0, 60000) || 1500 + Math.random() * 1500));
-      try { v = await all(); } catch (e2) { const [m, a] = errorText(e2); shell(m, a); return; }
-    } else { const [m, a] = errorText(e); shell(m, a); return; }
+      try { return await all(); } catch (e2) { const [m, a] = errorText(e2); shell(m, a); return null; }
+    }
+    const [m, a] = errorText(e); shell(m, a); return null;
   }
+}
+let mcpP = null;
+async function load(){
+  shell("スプレッドシートから読み込み中…");
+  let v;
+  if (window.claude && window.claude.use) {
+    mcpP ||= window.claude.use("mcp");
+    const mcp = await mcpP;
+    v = mcp ? await viaMcp(mcp) : await viaGviz();
+  } else {
+    v = await viaGviz();
+  }
+  if (!v) return;
   const [tp, src, cm, meta] = v.map(table);
   if (!tp.length) { shell("スプレッドシートの topics タブにデータがありません。", "もう一度読み込む"); return; }
   DATA = buildData(tp, src, cm, meta);
@@ -313,5 +353,3 @@ window.addEventListener("hashchange", () => { if (DATA) route(); });
 document.addEventListener("click", e => { if (e.target.closest(".row")) listY = window.scrollY; });
 load();
 </script>
-
-</body></html>
