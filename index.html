@@ -23,20 +23,25 @@
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.7}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--accent)}
-.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1280px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--accent);color:var(--bg)}
 .bar .wrap{display:flex;align-items:center;gap:10px;padding-block:10px;min-height:52px}
 .bar h1{font-family:var(--display);font-weight:900;font-size:1.2rem;margin:0;letter-spacing:.02em}
+.bar .grow{flex:1}
 .bar time{margin-left:auto;font-size:.82rem;opacity:.9;font-variant-numeric:tabular-nums;white-space:nowrap}
 .back{appearance:none;border:1px solid color-mix(in srgb,var(--bg) 55%,transparent);background:transparent;color:var(--bg);font:700 .85rem var(--body);border-radius:999px;padding:4px 12px;cursor:pointer;white-space:nowrap}
 .back:focus-visible,.tab:focus-visible,.row:focus-visible,.seg button:focus-visible,.anc:focus-visible{outline:2px solid var(--flag);outline-offset:2px}
 .bar .ttl{font-family:var(--display);font-weight:700;font-size:.95rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tabs{background:var(--surface);border-bottom:1px solid var(--line)}
-.tabs .wrap{display:flex;flex-direction:column;gap:6px;padding-block:8px}
-.trow{display:flex;gap:6px;align-items:flex-start}
-.trow .bs{display:flex;flex-wrap:wrap;gap:6px}
-.trow .lb{flex:none;width:2.2em;padding-top:6px;font:700 .72rem var(--body);color:var(--muted)}
-.tab{flex:none;appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 .85rem var(--body);border-radius:999px;padding:4px 12px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.tabs{background:var(--surface);border-bottom:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.lgsel{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.lgsel button{appearance:none;border:0;background:var(--surface);color:var(--ink);font:700 .82rem var(--body);padding:8px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;line-height:1.25}
+.lgsel button+button{border-left:1px solid var(--line)}
+.lgsel button .n{font:600 .68rem var(--mono);color:var(--muted)}
+.lgsel button[aria-pressed="true"]{background:var(--accent);color:var(--bg)}
+.lgsel button[aria-pressed="true"] .n{color:var(--bg)}
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tgrid .tab{justify-content:center;padding:6px 4px;border-radius:8px}
+.tab{min-width:0;appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 .85rem var(--body);border-radius:999px;padding:4px 12px;cursor:pointer;display:flex;gap:6px;align-items:center}
 .tab .n{font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
 .tab[aria-pressed="true"] .n{color:var(--bg);opacity:.85}
@@ -96,6 +101,36 @@ a{color:var(--accent);text-underline-offset:2px}
 .pb{margin:4px 0 0 1.2em;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.75}
 .anc{appearance:none;border:0;background:none;padding:0;color:var(--anchor);font:inherit;text-decoration:underline;cursor:pointer}
 .omit{font-size:.8rem;color:var(--muted);margin:8px 0 0}
+/* ===== responsive: one source. narrow = screen switch, wide = list | thread side by side ===== */
+.layout{max-width:1280px;margin:0 auto}
+#lp main,#tp main{padding:14px 16px 48px}
+.thbar{position:sticky;top:calc(env(safe-area-inset-top,0px) + 52px);z-index:4;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:8px 16px}
+.thbar .back{color:var(--accent);border-color:var(--line)}
+.thbar .ttl{font:700 .9rem var(--display);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick{color:var(--muted);text-align:center;padding:80px 20px}
+.row[aria-current="true"]{background:var(--accent-soft);box-shadow:inset 4px 0 0 var(--accent)}
+@media (max-width:899px){
+  body.thread #lp{display:none}
+  body:not(.thread) #tp{display:none}
+  .pc{display:none}
+}
+@media (min-width:900px){
+  .layout{display:grid;grid-template-columns:minmax(360px,420px) 1fr;align-items:start;border-inline:1px solid var(--line)}
+  #lp{border-right:1px solid var(--line);min-height:calc(100vh - 52px)}
+  #tp{position:sticky;top:52px;height:calc(100vh - 52px);overflow:auto;background:var(--bg)}
+  .thbar{top:0}
+  .thbar .back{display:none}
+  .post{scroll-margin-top:60px}
+  .thead h3{font-size:1.4rem}
+}
+@media (max-width:420px){
+  body{font-size:14.5px}
+  .row{padding:11px 12px}
+  .pb{margin-left:.6em}
+  .board{padding:8px 10px}
+  .lgsel button{font-size:.78rem}
+  .tgrid .tab{font-size:.8rem}
+}
 @media (prefers-reduced-motion:no-preference){.post.hl{transition:background .6s}}
 </style>
 
@@ -121,7 +156,7 @@ try { team = localStorage.getItem("npb-team") || "all"; } catch(e) {}
 function match(t, key){
   if (key === "all") return true;
   if (key === "new") return t.isNew;
-  if (key === "se" || key === "pa") return t.lg === key;
+  if (key === "se" || key === "pa" || key === "etc") return t.lg === key;
   return t.team === key || (t.rel || "").split("/").includes(key);
 }
 const youbi = ["日","月","火","水","木","金","土"];
@@ -144,36 +179,58 @@ function newsHtml(t){
 function row(t){
   const nres = t.posts.filter(p => p.k==="res").length, ncm = t.posts.length - nres;
   const cnt = t.posts.length ? `${nres ? "レス"+nres : ""}${nres&&ncm ? " / " : ""}${ncm ? "コメ"+ncm : ""}` : "見出しのみ";
-  return `<a class="row" href="#topic-${t.id}">
+  return `<a class="row" href="#topic-${t.id}" data-id="${t.id}">
     <span class="chip" data-t="${esc(t.team)}">${esc(t.team === "海外日本人選手" ? "海外" : t.team)}</span>
     <span class="h">${t.isNew ? '<span class="new">NEW</span>' : ""}${esc(t.h)}${t.tag ? `<span class="tag">${esc(t.tag)}</span>` : ""}</span>
     <span class="meta"><span class="cnt">${cnt}</span><span>${esc(t.cat)}</span><span>${esc(t.st)}</span>${t.src ? `<span>${esc(t.src.n)}</span>` : ""}</span>
   </a>`;
 }
+const GROUPS = [["all","すべて"],["new","新着"],["se","セ"],["pa","パ"],["etc","他"]];
+const GTEAMS = {se: TEAMS.slice(4,10), pa: TEAMS.slice(10,16), etc: TEAMS.slice(16)};
+function groupOf(k){
+  if (GTEAMS.se.some(x => x[0]===k) || k==="se") return "se";
+  if (GTEAMS.pa.some(x => x[0]===k) || k==="pa") return "pa";
+  if (GTEAMS.etc.some(x => x[0]===k) || k==="etc") return "etc";
+  return k;
+}
+function label(k){
+  const g = {all:"すべて",new:"新着",se:"セ・リーグ",pa:"パ・リーグ",etc:"球界総合・海外"}[k];
+  return g || ((TEAMS.find(x => x[0]===k) || [])[1] || k);
+}
+function layout(){
+  if (document.getElementById("lp")) return;
+  document.getElementById("app").innerHTML = `
+    <header class="bar"><div class="wrap"><h1>⚾ NPBレポート</h1><span class="grow"></span><time datetime="${esc(DATA.iso)}">${esc(DATA.stamp)} 更新</time></div></header>
+    <div class="layout"><section id="lp" aria-label="話題の一覧"></section><section id="tp" aria-label="話題の詳細"></section></div>`;
+}
 function renderList(){
   const shown = DATA.topics.filter(t => match(t, team));
-  const btn = ([k, label]) => {
-    const n = DATA.topics.filter(t => match(t, k)).length;
-    return `<button class="tab" data-team="${esc(k)}"${label || k==="球界総合" ? "" : ` data-t="${esc(k)}"`} aria-pressed="${k===team}">${esc(label || k)}<span class="n">${n}</span></button>`;
-  };
-  const grp = (lb, arr) => `<div class="trow"><span class="lb">${lb}</span><div class="bs">${arr.map(btn).join("")}</div></div>`;
-  const tabs = grp("全体", [...TEAMS.slice(0,4), ...TEAMS.slice(16)]) + grp("セ", TEAMS.slice(4,10)) + grp("パ", TEAMS.slice(10,16));
+  const g = groupOf(team);
+  const n = k => DATA.topics.filter(t => match(t, k)).length;
+  const lgsel = GROUPS.map(([k, l]) => `<button data-team="${k}" aria-pressed="${g===k}">${l}<span class="n">${n(k)}</span></button>`).join("");
+  const tg = GTEAMS[g] ? `<div class="tgrid">${GTEAMS[g].map(([k, l]) => `<button class="tab" data-team="${esc(k)}"${GTEAMS.etc.some(x=>x[0]===k) ? "" : ` data-t="${esc(k)}"`} aria-pressed="${k===team}">${esc(l || k)}<span class="n">${n(k)}</span></button>`).join("")}</div>` : "";
   const main = DATA.main.map(id => DATA.topics.find(t => t.id === id)).filter(Boolean);
-  document.getElementById("app").innerHTML = `
-    <header class="bar"><div class="wrap"><h1>⚾ NPBレポート</h1><time datetime="${esc(DATA.iso)}">${esc(DATA.stamp)} 更新</time></div></header>
-    <nav class="tabs" aria-label="球団で絞り込む"><div class="wrap" id="tabrow">${tabs}</div></nav>
-    <main class="wrap stack">
+  document.getElementById("lp").innerHTML = `
+    <nav class="tabs" aria-label="球団で絞り込む"><div class="lgsel" role="group">${lgsel}</div>${tg}</nav>
+    <main class="stack">
       ${team === "all" && main.length ? `<section><h2>今日の主なトピック</h2><div class="list">${main.map(row).join("")}</div></section>` : ""}
-      <section><h2>${esc((TEAMS.find(x=>x[0]===team)||[])[1] || team)}の話題 ${shown.length}件</h2>
+      <section><h2>${esc(label(team))}の話題 ${shown.length}件</h2>
         <div class="list">${shown.length ? shown.map(row).join("") : '<p class="empty">この枠の話題はまだありません。</p>'}</div></section>
       <p class="foot">巡回できなかったサイト：${esc(DATA.unreach)}<br>元データ：<a href="${SHEET_URL}" target="_blank" rel="noopener">スプレッドシート「NPB掲示板データ」</a>（ページを開くたびに読み込み）</p>
     </main>`;
-  document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => {
-    team = b.dataset.team; try { localStorage.setItem("npb-team", team); } catch(e) {}
-    const y = window.scrollY; renderList(); window.scrollTo(0, y);
+  document.querySelectorAll("#lp [data-team]").forEach(b => b.addEventListener("click", () => {
+    team = b.dataset.team;
+    try { localStorage.setItem("npb-team", team); } catch(e) {}
+    const y = window.scrollY; renderList(); markCurrent(); window.scrollTo(0, y);
   }));
 }
+function markCurrent(){
+  const m = location.hash.match(/^#topic-(t[0-9a-z]+)$/);
+  document.querySelectorAll("#lp .row").forEach(r => r.setAttribute("aria-current", String(!!m && r.dataset.id === m[1])));
+}
 function renderThread(t){
+  const tp = document.getElementById("tp");
+  if (!t) { tp.innerHTML = '<p class="pick">左の一覧から話題を選ぶと、ここにレスが表示されます。</p>'; return; }
   const res = t.posts.filter(p => p.k==="res"), cm = t.posts.filter(p => p.k==="cm");
   if (seg === "res" && !res.length) seg = "cm";
   if (seg === "cm" && !cm.length) seg = "res";
@@ -182,11 +239,11 @@ function renderThread(t){
   const posts = list.map((p, i) => `<div class="post" id="${seg}-${p.no ?? "x"+i}">
       <div class="ph"><span class="no">${p.no ?? "—"}</span><span class="nm">${name}</span>${fmtDate(p.at)}</div>
       <div class="pb">${bodyHtml(p.b, seg)}</div></div>`).join("");
-  document.getElementById("app").innerHTML = `
-    <header class="bar"><div class="wrap"><button class="back" id="back">← 一覧</button><span class="ttl">${esc(t.team === "海外日本人選手" ? "海外" : t.team)}</span><time datetime="${esc(DATA.iso)}">${esc(DATA.stamp)}</time></div></header>
-    <main class="wrap stack">
+  tp.innerHTML = `
+    <div class="thbar"><button class="back" id="back">← 一覧</button><span class="chip" data-t="${esc(t.team)}">${esc(t.team === "海外日本人選手" ? "海外" : t.team)}</span><span class="ttl">${esc(t.h)}</span></div>
+    <main class="stack">
       <div class="thead">
-        <div class="kv"><span class="chip" data-t="${esc(t.team)}">${esc(t.team)}</span><span>${esc(t.cat)}</span><span>${esc(t.st)}</span>${t.rel ? `<span>関連：${esc(t.rel)}</span>` : ""}</div>
+        <div class="kv"><span>${esc(t.cat)}</span><span>${esc(t.st)}</span>${t.rel ? `<span>関連：${esc(t.rel)}</span>` : ""}</div>
         <h3>${esc(t.h)}${t.tag ? `<span class="tag">${esc(t.tag)}</span>` : ""}</h3>
       </div>
       <div class="box"><span class="lbl">NEWS</span><div>${newsHtml(t)}</div>
@@ -199,9 +256,9 @@ function renderThread(t){
         </div>
         <div class="board">${posts}</div>` : '<p class="note">この話題はレスを取得していません（見出しのみ）。</p>'}
     </main>`;
-  document.getElementById("back").addEventListener("click", () => { location.hash = ""; });
-  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => { seg = b.dataset.seg; renderThread(t); }));
-  document.querySelectorAll(".anc").forEach(b => b.addEventListener("click", () => {
+  document.getElementById("back").addEventListener("click", () => { history.length > 1 && location.hash ? history.back() : (location.hash = ""); });
+  tp.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => { seg = b.dataset.seg; renderThread(t); }));
+  tp.querySelectorAll(".anc").forEach(b => b.addEventListener("click", () => {
     const el = document.getElementById(b.dataset.to);
     if (!el) { b.title = "参照先のレスは取得範囲外です"; return; }
     el.scrollIntoView({block:"center"}); el.classList.add("hl"); setTimeout(() => el.classList.remove("hl"), 1400);
@@ -343,13 +400,24 @@ async function load(){
   route();
 }
 let listY = 0;
+const wide = matchMedia("(min-width:900px)");
 function route(){
   const m = location.hash.match(/^#topic-(t[0-9a-z]+)$/);
   const t = m && DATA.topics.find(x => x.id === m[1]);
-  if (t) { seg = "res"; renderThread(t); window.scrollTo(0, 0); }
-  else { renderList(); window.scrollTo(0, listY); }
+  const first = !document.getElementById("lp");
+  layout();
+  if (first) renderList();
+  const was = document.body.classList.contains("thread");
+  if (t) { seg = "res"; renderThread(t); document.getElementById("tp").scrollTop = 0; }
+  else renderThread(null);
+  document.body.classList.toggle("thread", !!t);
+  markCurrent();
+  if (!wide.matches) {
+    if (t && !was) window.scrollTo(0, 0);
+    else if (!t && was) window.scrollTo(0, listY);
+  }
 }
 window.addEventListener("hashchange", () => { if (DATA) route(); });
-document.addEventListener("click", e => { if (e.target.closest(".row")) listY = window.scrollY; });
+document.addEventListener("click", e => { if (e.target.closest(".row") && !document.body.classList.contains("thread")) listY = window.scrollY; });
 load();
 </script>
