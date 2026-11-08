@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>NPBレポート</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -109,20 +110,19 @@ a{color:var(--accent);text-underline-offset:2px}
 .thbar .ttl{font:700 .9rem var(--display);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pick{color:var(--muted);text-align:center;padding:80px 20px}
 .row[aria-current="true"]{background:var(--accent-soft);box-shadow:inset 4px 0 0 var(--accent)}
-@media (max-width:899px){
-  body.thread #lp{display:none}
-  body:not(.thread) #tp{display:none}
-  .pc{display:none}
-}
-@media (min-width:900px){
-  .layout{display:grid;grid-template-columns:minmax(360px,420px) 1fr;align-items:start;border-inline:1px solid var(--line)}
-  #lp{border-right:1px solid var(--line);min-height:calc(100vh - 52px)}
-  #tp{position:sticky;top:52px;height:calc(100vh - 52px);overflow:auto;background:var(--bg)}
-  .thbar{top:0}
-  .thbar .back{display:none}
-  .post{scroll-margin-top:60px}
-  .thead h3{font-size:1.4rem}
-}
+/* 一覧のタブは常に上部に固定 */
+.tabs{position:sticky;top:calc(env(safe-area-inset-top,0px) + 52px);z-index:4}
+/* スマホ（幅が狭い or タッチ端末）＝一覧⇄詳細の画面切り替え。PC＝左右2カラム */
+html.m body.thread #lp{display:none}
+html.m body:not(.thread) #tp{display:none}
+html.m .pc{display:none}
+html:not(.m) .layout{display:grid;grid-template-columns:minmax(360px,420px) 1fr;align-items:start;border-inline:1px solid var(--line)}
+html:not(.m) #lp{border-right:1px solid var(--line);min-height:calc(100vh - 52px)}
+html:not(.m) #tp{position:sticky;top:52px;height:calc(100vh - 52px);overflow:auto;background:var(--bg)}
+html:not(.m) .thbar{top:0}
+html:not(.m) .thbar .back{display:none}
+html:not(.m) .post{scroll-margin-top:60px}
+html:not(.m) .thead h3{font-size:1.4rem}
 @media (max-width:420px){
   body{font-size:14.5px}
   .row{padding:11px 12px}
@@ -151,7 +151,15 @@ const TEAMS = [
 const BLOCK = "AIでのデータ取得を許可されていないサイトです。元記事を参照してください。";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let team = "all", seg = "res";
-try { team = localStorage.getItem("npb-team") || "all"; } catch(e) {}
+/* 読み込み時は常に「すべて」の一覧の先頭から表示する */
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+window.scrollTo(0, 0);
+/* スマホ判定：幅が狭い、またはタッチ操作の端末 */
+const mobileMQ = matchMedia("(max-width:899px), (hover:none) and (pointer:coarse)");
+const setMode = () => document.documentElement.classList.toggle("m", mobileMQ.matches);
+setMode();
+mobileMQ.addEventListener ? mobileMQ.addEventListener("change", setMode) : mobileMQ.addListener(setMode);
 
 function match(t, key){
   if (key === "all") return true;
@@ -221,7 +229,7 @@ function renderList(){
   document.querySelectorAll("#lp [data-team]").forEach(b => b.addEventListener("click", () => {
     team = b.dataset.team;
     try { localStorage.setItem("npb-team", team); } catch(e) {}
-    const y = window.scrollY; renderList(); markCurrent(); window.scrollTo(0, y);
+    renderList(); markCurrent(); window.scrollTo(0, 0);
   }));
 }
 function markCurrent(){
@@ -400,7 +408,7 @@ async function load(){
   route();
 }
 let listY = 0;
-const wide = matchMedia("(min-width:900px)");
+const wide = {get matches(){ return !mobileMQ.matches; }};
 function route(){
   const m = location.hash.match(/^#topic-(t[0-9a-z]+)$/);
   const t = m && DATA.topics.find(x => x.id === m[1]);
@@ -421,3 +429,5 @@ window.addEventListener("hashchange", () => { if (DATA) route(); });
 document.addEventListener("click", e => { if (e.target.closest(".row") && !document.body.classList.contains("thread")) listY = window.scrollY; });
 load();
 </script>
+
+</body></html>
